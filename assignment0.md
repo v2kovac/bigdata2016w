@@ -7,5 +7,12 @@ Question 2:
 li 6532
 
 Question 3:
+yes
 
-Question 4:
+Question 4.
+1.th 18487894
+2.in 8165787
+3.an 7399686
+
+Question 5.
+li 1303312
