@@ -172,8 +172,6 @@ public class PairsPMI extends Configured implements Tool {
         throw new IOException("FILE DOESN'T EXIST or CAN'T OPEN FILE");
       }
       
-      br.close();
-      
     }
     
     @Override
