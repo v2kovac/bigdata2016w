@@ -2,3 +2,4 @@ data/
 target/
 wc/
 *.py
+*.swp
