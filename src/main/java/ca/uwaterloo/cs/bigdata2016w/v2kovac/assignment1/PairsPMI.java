@@ -158,7 +158,7 @@ public class PairsPMI extends Configured implements Tool {
         FileSystem fs = FileSystem.get(conf);
         FileStatus[] status = fs.listStatus(new Path("intermediate/"));
         for (int i=0; i < status.length; i++) {
-          BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(status[i].getPath())));
+          BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(status[i].getPath()),"UTF-8"));
           String line = br.readLine();
           while(line != null){
             String[] tokens = line.split("\\s+");
