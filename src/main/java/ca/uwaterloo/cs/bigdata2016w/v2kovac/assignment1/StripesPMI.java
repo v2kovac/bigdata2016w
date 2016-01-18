@@ -200,7 +200,7 @@ public class StripesPMI extends Configured implements Tool {
         String left = pair.getLeftElement();
         String right = pair.getRightElement();
 
-        double probPair = (double)pairSum / (double)totalLines;
+        double probPair = (double)sumOfPair / (double)totalLines;
         double probLeft = (double)wordCount.get(left) / (double)totalLines;
         double probRight = (double)wordCount.get(right) / (double)totalLines;
 
