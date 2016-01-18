@@ -155,7 +155,7 @@ public class PairsPMI extends Configured implements Tool {
 
       FileSystem fs = FileSystem.get(conf);
       
-      Path inFile = new Path("/u8/v2kovac/cs489/bigdata2016w/intermediate/part-r-00000");
+      Path inFile = new Path("intermediate/part-r-00000");
 
       if(!fs.exists(inFile)){
         throw new IOException("File Not Found: " + inFile.toString());
@@ -259,7 +259,7 @@ public class PairsPMI extends Configured implements Tool {
     job.setNumReduceTasks(args.numReducers);
 
     FileInputFormat.setInputPaths(job, new Path(args.input));
-    FileOutputFormat.setOutputPath(job, new Path("/u8/v2kovac/cs489/bigdata2016w/intermediate/"));
+    FileOutputFormat.setOutputPath(job, new Path("intermediate/"));
 
     job.setMapOutputKeyClass(Text.class);
     job.setMapOutputValueClass(IntWritable.class);
@@ -272,7 +272,7 @@ public class PairsPMI extends Configured implements Tool {
     job.setReducerClass(MyReducer.class);
 
     // Delete the output directory if it exists already.
-    Path outputDir = new Path("/u8/v2kovac/cs489/bigdata2016w/intermediate/");
+    Path outputDir = new Path("intermediate/");
     FileSystem.get(conf).delete(outputDir, true);
 
     long startTime = System.currentTimeMillis();
