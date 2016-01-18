@@ -153,37 +153,25 @@ public class PairsPMI extends Configured implements Tool {
       Configuration conf = context.getConfiguration();
       totalLines = conf.getLong("counter", 0L);
 
-      FileSystem fs = FileSystem.get(conf);
-      
-      Path inFile = new Path("intermediate/part-r-00000");
-
-      if(!fs.exists(inFile)){
-        throw new IOException("File Not Found: " + inFile.toString());
-      }
-      
-      BufferedReader reader = null;
-      try{
-        FSDataInputStream in = fs.open(inFile);
-        InputStreamReader inStream = new InputStreamReader(in);
-        reader = new BufferedReader(inStream);
-        
-      } catch(FileNotFoundException e){
-        throw new IOException("Exception thrown when trying to open file.");
-      }
-      
-      
-      String line = reader.readLine();
-      while(line != null){
-        String[] parts = line.split("\\s+");
-        if(parts.length != 2){
-          LOG.info("Input line did not have exactly 2 tokens: '" + line + "'");
-        } else {
-          wordCount.put(parts[0], Integer.parseInt(parts[1]));
+      try {
+        FileSystem fs = FileSystem.get(conf);
+        FileStatus[] status = fs.listStatus(new Path("intermediate/"));
+        for (int i=0; i < status.length; i++) {
+          BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(status[i].getPath())));
+          String line = br.readLine();
+          while(line != null){
+            String[] tokens = line.split("\\s+");
+            if(tokens.length == 2){
+              wordCount.put(tokens[0], Integer.parseInt(tokens[1]));
+            }
+            line = br.readLine();
+          }
         }
-        line = reader.readLine();
+      } catch (Exception e) {
+        throw new IOException("FILE DOESN'T EXIST or CAN'T OPEN FILE");
       }
       
-      reader.close();
+      br.close();
       
     }
     
