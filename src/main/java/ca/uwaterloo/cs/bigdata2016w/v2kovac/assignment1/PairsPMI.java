@@ -27,75 +27,61 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.kohsuke.args4j.ParserProperties;
 
-/**
- * Simple word count demo.
- */
-public class WordCount extends Configured implements Tool {
-  private static final Logger LOG = Logger.getLogger(WordCount.class);
+import tl.lin.data.pair.PairOfStrings;
 
-  // Mapper: emits (token, 1) for every word occurrence.
-  private static class MyMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
-    // Reuse objects to save overhead of object creation.
-    private final static IntWritable ONE = new IntWritable(1);
-    private final static Text WORD = new Text();
+public class PairsPMI extends Configured implements Tool {
+  private static final Logger LOG = Logger.getLogger(PairsPMI.class);
+
+  // Mapper: emits (token pair, 1) for every word pair occurrence.
+  private static class MyMapper extends Mapper<LongWritable, Text, PairOfStrings, FloatWritable> {
+    private final static FloatWritable ONE = new FloatWritable(1);
+    private final static PairOfStrings PAIR = new PairOfStrings();
+    public enum MyCounter { COUNTER_NAME };
 
     @Override
     public void map(LongWritable key, Text value, Context context)
         throws IOException, InterruptedException {
       String line = ((Text) value).toString();
       StringTokenizer itr = new StringTokenizer(line);
+
+      int cnt = 0;
+      Set set = Sets.newHashSet();
       while (itr.hasMoreTokens()) {
+        cnt++;
         String w = itr.nextToken().toLowerCase().replaceAll("(^[^a-z]+|[^a-z]+$)", "");
         if (w.length() == 0) continue;
-        WORD.set(w);
-        context.write(WORD, ONE);
+        set.add(w);
+        if (cnt >= 100) break;
       }
-    }
-  }
 
-  private static class MyMapperIMC extends Mapper<LongWritable, Text, Text, IntWritable> {
-    private final HashMap<String, Integer> counts = new HashMap<String, Integer>();
+      String[] words = new String[set.size()];
+      words = set.toArray(words);
 
-    @Override
-    public void map(LongWritable key, Text value, Context context)
-        throws IOException, InterruptedException {
-      String line = ((Text) value).toString();
-      StringTokenizer itr = new StringTokenizer(line);
-      while (itr.hasMoreTokens()) {
-        String w = itr.nextToken().toLowerCase().replaceAll("(^[^a-z]+|[^a-z]+$)", "");
-        if (w.length() == 0) continue;
-
-        if (counts.containsKey(w)) {
-          counts.put(w, counts.get(w)+1);
-        } else {
-          counts.put(w, 1);
+      // Your code goes here...
+      for(int i=0; i < words.length(); i++) {
+        String word1 = words[i];
+        for(int i=0; i < words.length(); i++) {
+          String word2 = words[j];
+          PAIR.set(word1,word2);
+          context.write(PAIR,ONE);
         }
+        PAIR.set(word1,"*");
+        context.write(PAIR,ONE);
       }
-    }
 
-    @Override
-    public void cleanup(Context context) throws IOException, InterruptedException {
-      IntWritable cnt = new IntWritable();
-      Text token = new Text();
-
-      for (Map.Entry<String, Integer> entry : counts.entrySet()) {
-        token.set(entry.getKey());
-        cnt.set(entry.getValue());
-        context.write(token, cnt);
-      }
-    }
+      Counter counter = context.getCounter(MyCounter.COUNTER_NAME);
+      counter.increment(1L);
+   }
   }
 
-  // Reducer: sums up all the counts.
-  private static class MyReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
-    // Reuse objects.
-    private final static IntWritable SUM = new IntWritable();
+  private static class MyReducer extends Reducer<PairOfStrings, FloatWritable, PairOfStrings, FloatWritable> {
+    private final static FloatWritable SUM = new FloatWritable();
 
     @Override
-    public void reduce(Text key, Iterable<IntWritable> values, Context context)
+    public void reduce(PairOfStrings key, Iterable<FloatWritable> values, Context context)
         throws IOException, InterruptedException {
       // Sum up values.
-      Iterator<IntWritable> iter = values.iterator();
+      Iterator<FloatWritable> iter = values.iterator();
       int sum = 0;
       while (iter.hasNext()) {
         sum += iter.next().get();
@@ -108,7 +94,7 @@ public class WordCount extends Configured implements Tool {
   /**
    * Creates an instance of this tool.
    */
-  public WordCount() {}
+  public PairsPMI() {}
 
   public static class Args {
     @Option(name = "-input", metaVar = "[path]", required = true, usage = "input path")
@@ -119,9 +105,6 @@ public class WordCount extends Configured implements Tool {
 
     @Option(name = "-reducers", metaVar = "[num]", required = false, usage = "number of reducers")
     public int numReducers = 1;
-
-    @Option(name = "-imc", usage = "use in-mapper combining")
-    boolean imc = false;
   }
 
   /**
@@ -139,7 +122,7 @@ public class WordCount extends Configured implements Tool {
       return -1;
     }
 
-    LOG.info("Tool: " + WordCount.class.getSimpleName());
+    LOG.info("Tool: " + PairsPMI.class.getSimpleName());
     LOG.info(" - input path: " + args.input);
     LOG.info(" - output path: " + args.output);
     LOG.info(" - number of reducers: " + args.numReducers);
@@ -147,21 +130,21 @@ public class WordCount extends Configured implements Tool {
 
     Configuration conf = getConf();
     Job job = Job.getInstance(conf);
-    job.setJobName(WordCount.class.getSimpleName());
-    job.setJarByClass(WordCount.class);
+    job.setJobName(PairsPMI.class.getSimpleName());
+    job.setJarByClass(PairsPMI.class);
 
     job.setNumReduceTasks(args.numReducers);
 
     FileInputFormat.setInputPaths(job, new Path(args.input));
     FileOutputFormat.setOutputPath(job, new Path(args.output));
 
-    job.setMapOutputKeyClass(Text.class);
-    job.setMapOutputValueClass(IntWritable.class);
+    job.setMapOutputKeyClass(PairOfStrings.class);
+    job.setMapOutputValueClass(FloatWritable.class);
     job.setOutputKeyClass(Text.class);
-    job.setOutputValueClass(IntWritable.class);
+    job.setOutputValueClass(FloatWritable.class);
     job.setOutputFormatClass(TextOutputFormat.class);
 
-    job.setMapperClass(args.imc ? MyMapperIMC.class : MyMapper.class);
+    job.setMapperClass(MyMapper.class);
     job.setCombinerClass(MyReducer.class);
     job.setReducerClass(MyReducer.class);
 
@@ -180,6 +163,6 @@ public class WordCount extends Configured implements Tool {
    * Dispatches command-line arguments to the tool via the {@code ToolRunner}.
    */
   public static void main(String[] args) throws Exception {
-    ToolRunner.run(new WordCount(), args);
+    ToolRunner.run(new PairsPMI(), args);
   }
 }
