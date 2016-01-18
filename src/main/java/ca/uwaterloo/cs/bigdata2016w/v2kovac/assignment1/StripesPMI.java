@@ -37,8 +37,8 @@ import org.kohsuke.args4j.ParserProperties;
 
 import tl.lin.data.pair.PairOfStrings;
 
-public class PairsPMI extends Configured implements Tool {
-  private static final Logger LOG = Logger.getLogger(PairsPMI.class);
+public class StripesPMI extends Configured implements Tool {
+  private static final Logger LOG = Logger.getLogger(StripesPMI.class);
 
   // 1st Mapper: emits (word, 1) for every word pair occurrence.
   private static class MyMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
@@ -218,7 +218,7 @@ public class PairsPMI extends Configured implements Tool {
   /**
    * Creates an instance of this tool.
    */
-  public PairsPMI() {}
+  public StripesPMI() {}
 
   public static class Args {
     @Option(name = "-input", metaVar = "[path]", required = true, usage = "input path")
@@ -246,15 +246,15 @@ public class PairsPMI extends Configured implements Tool {
       return -1;
     }
 
-    LOG.info("Tool: " + PairsPMI.class.getSimpleName());
+    LOG.info("Tool: " + StripesPMI.class.getSimpleName());
     LOG.info(" - input path: " + args.input);
     LOG.info(" - output path: " + args.output);
     LOG.info(" - number of reducers: " + args.numReducers);
 
     Configuration conf = getConf();
     Job job = Job.getInstance(conf);
-    job.setJobName(PairsPMI.class.getSimpleName());
-    job.setJarByClass(PairsPMI.class);
+    job.setJobName(StripesPMI.class.getSimpleName());
+    job.setJarByClass(StripesPMI.class);
 
     job.setNumReduceTasks(args.numReducers);
 
@@ -283,8 +283,8 @@ public class PairsPMI extends Configured implements Tool {
     long mapCount = job.getCounters().findCounter(MyMapper.MyCounter.COUNTER_NAME).getValue();
     conf.setLong("counter", mapCount);
     Job job2 = Job.getInstance(conf);
-    job2.setJobName(PairsPMI.class.getSimpleName() + "PMI");
-    job2.setJarByClass(PairsPMI.class);
+    job2.setJobName(StripesPMI.class.getSimpleName() + "PMI");
+    job2.setJarByClass(StripesPMI.class);
 
     job2.setNumReduceTasks(args.numReducers);
 
@@ -313,6 +313,6 @@ public class PairsPMI extends Configured implements Tool {
    * Dispatches command-line arguments to the tool via the {@code ToolRunner}.
    */
   public static void main(String[] args) throws Exception {
-    ToolRunner.run(new PairsPMI(), args);
+    ToolRunner.run(new StripesPMI(), args);
   }
 }
