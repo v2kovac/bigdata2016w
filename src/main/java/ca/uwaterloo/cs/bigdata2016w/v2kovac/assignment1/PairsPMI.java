@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.StringTokenizer;
+import java.util.Set;
+import java.util.HashSet;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -19,6 +21,7 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
+import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
@@ -45,7 +48,7 @@ public class PairsPMI extends Configured implements Tool {
       StringTokenizer itr = new StringTokenizer(line);
 
       int cnt = 0;
-      Set set = Sets.newHashSet();
+      Set<String> set = new HashSet<String>();
       while (itr.hasMoreTokens()) {
         cnt++;
         String w = itr.nextToken().toLowerCase().replaceAll("(^[^a-z]+|[^a-z]+$)", "");
@@ -58,9 +61,9 @@ public class PairsPMI extends Configured implements Tool {
       words = set.toArray(words);
 
       // Your code goes here...
-      for(int i=0; i < words.length(); i++) {
+      for(int i=0; i < words.length; i++) {
         String word1 = words[i];
-        for(int i=0; i < words.length(); i++) {
+        for(int j=0; i < words.length; i++) {
           String word2 = words[j];
           PAIR.set(word1,word2);
           context.write(PAIR,ONE);
@@ -126,7 +129,6 @@ public class PairsPMI extends Configured implements Tool {
     LOG.info(" - input path: " + args.input);
     LOG.info(" - output path: " + args.output);
     LOG.info(" - number of reducers: " + args.numReducers);
-    LOG.info(" - use in-mapper combining: " + args.imc);
 
     Configuration conf = getConf();
     Job job = Job.getInstance(conf);
