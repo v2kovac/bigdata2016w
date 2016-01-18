@@ -33,8 +33,8 @@ public class PairsPMI extends Configured implements Tool {
   private static final Logger LOG = Logger.getLogger(PairsPMI.class);
 
   // Mapper: emits (token pair, 1) for every word pair occurrence.
-  private static class MyMapper extends Mapper<LongWritable, Text, PairOfStrings, FloatWritable> {
-    private final static FloatWritable ONE = new FloatWritable(1);
+  private static class MyMapper extends Mapper<LongWritable, Text, PairOfStrings, IntWritable> {
+    private final static IntWritable ONE = new IntWritable(1);
     private final static PairOfStrings PAIR = new PairOfStrings();
     public enum MyCounter { COUNTER_NAME };
 
@@ -74,14 +74,14 @@ public class PairsPMI extends Configured implements Tool {
    }
   }
 
-  private static class MyReducer extends Reducer<PairOfStrings, FloatWritable, PairOfStrings, FloatWritable> {
-    private final static FloatWritable SUM = new FloatWritable();
+  private static class MyReducer extends Reducer<PairOfStrings, IntWritable, PairOfStrings, IntWritable> {
+    private final static IntWritable SUM = new IntWritable();
 
     @Override
-    public void reduce(PairOfStrings key, Iterable<FloatWritable> values, Context context)
+    public void reduce(PairOfStrings key, Iterable<IntWritable> values, Context context)
         throws IOException, InterruptedException {
       // Sum up values.
-      Iterator<FloatWritable> iter = values.iterator();
+      Iterator<IntWritable> iter = values.iterator();
       int sum = 0;
       while (iter.hasNext()) {
         sum += iter.next().get();
@@ -139,9 +139,9 @@ public class PairsPMI extends Configured implements Tool {
     FileOutputFormat.setOutputPath(job, new Path(args.output));
 
     job.setMapOutputKeyClass(PairOfStrings.class);
-    job.setMapOutputValueClass(FloatWritable.class);
+    job.setMapOutputValueClass(IntWritable.class);
     job.setOutputKeyClass(Text.class);
-    job.setOutputValueClass(FloatWritable.class);
+    job.setOutputValueClass(IntWritable.class);
     job.setOutputFormatClass(TextOutputFormat.class);
 
     job.setMapperClass(MyMapper.class);
