@@ -98,7 +98,7 @@ public class StripesPMI extends Configured implements Tool {
   // 2nd Mapper: emit (Pair, 1)
   private static class MySecondMapper extends Mapper<LongWritable, Text, Text, HMapKIW> {
     private final static Text KEY = new Text();
-    private final static HMapKIW<String> MAP = new HMapKIW<String>();
+    private final static HMapKIW<Text> MAP = new HMapKIW<Text>();
 
     @Override
     public void map(LongWritable key, Text value, Context context)
@@ -122,26 +122,25 @@ public class StripesPMI extends Configured implements Tool {
       // Your code goes here...
       for(int i=0; i < words.length; i++) {
         for (int j=i+1; j < words.length; j++) {
-          if (!MAP.contains(words[j]) {
-            MAP.put(words[j], 1);
-          }
+          KEY.set(words[j]);
+          MAP.put(KEY, 1);
         }
         KEY.set(words[i]);
-        context.write(KEY,MAP);
+        context.write(KEY, MAP);
         MAP.clear();
       }
     }
   }
 
   private static class MySecondCombiner extends Reducer<Text, HMapKIW, Text, HMapKIW> {
-    private static HMapKIW<String> MAP = new HMapKIW<String>(); 
+    private static HMapKIW<Text> MAP = new HMapKIW<Text>(); 
     
     @Override
     public void reduce(Text key, Iterable<HMapKIW> values, Context context) 
         throws IOException, InterruptedException{
 
       for(HMapKIW pairs : values){
-        for(String currentKey : pairs.keySet()) {
+        for(Text currentKey : (Set<Text>)pairs.keySet()) {
           if (MAP.containsKey(currentKey)) {
             int sum = MAP.get(currentKey) + pairs.get(currentKey);
             MAP.put(currentKey, sum);
@@ -150,7 +149,7 @@ public class StripesPMI extends Configured implements Tool {
           }
         }
       }
-      context.write(key, pairs.get(key));
+      context.write(key, MAP);
     }
   }
 
@@ -160,7 +159,7 @@ public class StripesPMI extends Configured implements Tool {
     private static PairOfStrings PAIR = new PairOfStrings();
     private static DoubleWritable PMI = new DoubleWritable();
     private static long totalLines;
-    private static Map<String, Integer> MAP = new HashMap<String, Integer>();
+    private static Map<Text, Integer> MAP = new HashMap<Text, Integer>();
     
     @Override
     public void setup(Context context) throws IOException{
@@ -192,26 +191,26 @@ public class StripesPMI extends Configured implements Tool {
         throws IOException, InterruptedException{
 
       for(HMapKIW pairs : values){
-        for(String curKey : pairs.keySet()){
+        for(Text curKey : (Set<Text>)pairs.keySet()){
           if(MAP.containsKey(curKey)){
             int sum = MAP.get(curKey) + pairs.get(curKey);
-            MAP.put(key, sum);
+            MAP.put(curKey, sum);
           }else{
-            MAP.put(key, pairs.get(curKey));
+            MAP.put(curKey, pairs.get(curKey));
           }
         }
       }
 
       String leftTerm = key.toString();
 
-      for(String curKey : MAP.keySet()){
-        PAIR.set(leftTerm, curKey);
+      for(Text curKey : MAP.keySet()){
+        PAIR.set(leftTerm, curKey.toString());
 
         double probPair = (double)MAP.get(curKey) / (double)totalLines;
         double probLeft = (double)wordCount.get(leftTerm) / (double)totalLines;
         double probRight = (double)wordCount.get(curKey) / (double)totalLines;
 
-        double pmi = Math.log((double)probPair / ((double)probLeft * (double)probRight));
+        double pmi = Math.log10((double)probPair / ((double)probLeft * (double)probRight));
 
         PMI.set(pmi);
         context.write(PAIR, PMI);
