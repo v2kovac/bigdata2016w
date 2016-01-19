@@ -39,6 +39,8 @@ Stripes: Job1 9.217 + Job2 16.752 = 25.969 seconds
 Question 4:
 -----------
 77198 lines(ie. pairs) according to the python script provided  
+This is double the amount of unique pairs since I emit all pairs
+therefore around 38599 unique pairs.
 
 Question 5:
 -----------
