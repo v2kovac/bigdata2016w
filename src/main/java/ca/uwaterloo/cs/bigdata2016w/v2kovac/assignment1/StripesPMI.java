@@ -36,7 +36,7 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.kohsuke.args4j.ParserProperties;
 
-import tl.lin.data.map.HMapKIW;
+import tl.lin.data.map.HMapStIW;
 import tl.lin.data.pair.PairOfStrings;
 
 public class StripesPMI extends Configured implements Tool {
@@ -96,9 +96,9 @@ public class StripesPMI extends Configured implements Tool {
   }
 
   // 2nd Mapper: emit (Pair, 1)
-  private static class MySecondMapper extends Mapper<LongWritable, Text, Text, HMapKIW> {
+  private static class MySecondMapper extends Mapper<LongWritable, Text, Text, HMapStIW> {
     private final static Text KEY = new Text();
-    private final static HMapKIW<Text> MAP = new HMapKIW<Text>();
+    private final static HMapStIW MAP = new HMapStIW();
 
     @Override
     public void map(LongWritable key, Text value, Context context)
@@ -121,9 +121,9 @@ public class StripesPMI extends Configured implements Tool {
 
       // Your code goes here...
       for(int i=0; i < words.length; i++) {
-        for (int j=i+1; j < words.length; j++) {
-          KEY.set(words[j]);
-          MAP.put(KEY, 1);
+        for (int j=0; j < words.length; j++) {
+          if(j==i) continue;
+          MAP.increment(words[j]);
         }
         KEY.set(words[i]);
         context.write(KEY, MAP);
@@ -132,34 +132,27 @@ public class StripesPMI extends Configured implements Tool {
     }
   }
 
-  private static class MySecondCombiner extends Reducer<Text, HMapKIW, Text, HMapKIW> {
-    private static HMapKIW<Text> MAP = new HMapKIW<Text>(); 
+  private static class MySecondCombiner extends Reducer<Text, HMapStIW, Text, HMapStIW> {
     
     @Override
-    public void reduce(Text key, Iterable<HMapKIW> values, Context context) 
+    public void reduce(Text key, Iterable<HMapStIW> values, Context context) 
         throws IOException, InterruptedException{
 
-      for(HMapKIW pairs : values){
-        for(Text currentKey : (Set<Text>)pairs.keySet()) {
-          if (MAP.containsKey(currentKey)) {
-            int sum = MAP.get(currentKey) + pairs.get(currentKey);
-            MAP.put(currentKey, sum);
-          } else {
-            MAP.put(currentKey, pairs.get(currentKey));
-          }
-        }
+      Iterator<HMapStIW> iter = values.iterator();
+      HMapStIW map = new HMapStIW();
+      while(iter.hasNext()) {
+        map.plus(iter.next());
       }
-      context.write(key, MAP);
+      context.write(key, map);
     }
   }
 
-  private static class MySecondReducer extends Reducer<Text, HMapKIW, PairOfStrings, DoubleWritable> {
+  private static class MySecondReducer extends Reducer<Text, HMapStIW, PairOfStrings, DoubleWritable> {
     
     private static Map<String, Integer> wordCount = new HashMap<String, Integer>();
     private static PairOfStrings PAIR = new PairOfStrings();
     private static DoubleWritable PMI = new DoubleWritable();
     private static long totalLines;
-    private static Map<Text, Integer> MAP = new HashMap<Text, Integer>();
     
     @Override
     public void setup(Context context) throws IOException{
@@ -187,26 +180,22 @@ public class StripesPMI extends Configured implements Tool {
     }
     
     @Override
-    public void reduce(Text key, Iterable<HMapKIW> values, Context context ) 
+    public void reduce(Text key, Iterable<HMapStIW> values, Context context ) 
         throws IOException, InterruptedException{
 
-      for(HMapKIW pairs : values){
-        for(Text curKey : (Set<Text>)pairs.keySet()){
-          if(MAP.containsKey(curKey)){
-            int sum = MAP.get(curKey) + pairs.get(curKey);
-            MAP.put(curKey, sum);
-          }else{
-            MAP.put(curKey, pairs.get(curKey));
-          }
-        }
+      Iterator<HMapStIW> iter = values.iterator();
+      HMapStIW map = new HMapStIW();
+      while(iter.hasNext()) {
+        map.plus(iter.next());
       }
 
       String leftTerm = key.toString();
 
-      for(Text curKey : MAP.keySet()){
-        PAIR.set(leftTerm, curKey.toString());
+      for(String curKey : map.keySet()){
+        if (map.get(curKey) < 10) continue;
+        PAIR.set(leftTerm, curKey);
 
-        double probPair = (double)MAP.get(curKey) / (double)totalLines;
+        double probPair = (double)map.get(curKey) / (double)totalLines;
         double probLeft = (double)wordCount.get(leftTerm) / (double)totalLines;
         double probRight = (double)wordCount.get(curKey) / (double)totalLines;
 
@@ -216,8 +205,6 @@ public class StripesPMI extends Configured implements Tool {
         context.write(PAIR, PMI);
 
       }
-      
-      MAP.clear();
 
     }
 
@@ -310,7 +297,7 @@ public class StripesPMI extends Configured implements Tool {
     FileOutputFormat.setOutputPath(job2, new Path(args.output));
 
     job2.setOutputKeyClass(Text.class);
-    job2.setOutputValueClass(HMapKIW.class);
+    job2.setOutputValueClass(HMapStIW.class);
     job2.setOutputFormatClass(TextOutputFormat.class);
 
     job2.setMapperClass(MySecondMapper.class);

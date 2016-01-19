@@ -120,7 +120,8 @@ public class PairsPMI extends Configured implements Tool {
 
       // Your code goes here...
       for(int i=0; i < words.length; i++) {
-        for (int j=i+1; j < words.length; j++) {
+        for (int j=0; j < words.length; j++) {
+          if (j==i) continue;
           PAIR.set(words[i],words[j]);
           context.write(PAIR,ONE);
         }
