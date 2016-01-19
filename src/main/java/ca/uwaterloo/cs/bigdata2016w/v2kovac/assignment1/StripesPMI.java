@@ -14,6 +14,7 @@ import java.util.HashSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.io.IntWritable;
@@ -35,6 +36,7 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.kohsuke.args4j.ParserProperties;
 
+import tl.lin.data.map.HMapKIW;
 import tl.lin.data.pair.PairOfStrings;
 
 public class StripesPMI extends Configured implements Tool {
@@ -94,9 +96,9 @@ public class StripesPMI extends Configured implements Tool {
   }
 
   // 2nd Mapper: emit (Pair, 1)
-  private static class MySecondMapper extends Mapper<LongWritable, Text, PairOfStrings, IntWritable> {
-    private final static IntWritable ONE = new IntWritable(1);
-    private final static PairOfStrings PAIR = new PairOfStrings();
+  private static class MySecondMapper extends Mapper<LongWritable, Text, Text, HMapKIW> {
+    private final static Text KEY = new Text();
+    private final static HMapKIW<String> MAP = new HMapKIW<String>();
 
     @Override
     public void map(LongWritable key, Text value, Context context)
@@ -120,96 +122,103 @@ public class StripesPMI extends Configured implements Tool {
       // Your code goes here...
       for(int i=0; i < words.length; i++) {
         for (int j=i+1; j < words.length; j++) {
-          PAIR.set(words[i],words[j]);
-          context.write(PAIR,ONE);
+          if (!MAP.contains(words[j]) {
+            MAP.put(words[j], 1);
+          }
         }
+        KEY.set(words[i]);
+        context.set(KEY,MAP);
+        MAP.clear();
       }
     }
   }
 
-  private static class MySecondCombiner extends Reducer<PairOfStrings, IntWritable, PairOfStrings, IntWritable> {
-    private static IntWritable SUM = new IntWritable(); 
+  private static class MySecondCombiner extends Reducer<Text, HMapKIW, Text, HMapKIW> {
+    private static HMapKIW<String> MAP = new HMapKIW<String>(); 
     
     @Override
-    public void reduce(PairOfStrings pair, Iterable<IntWritable> values, Context context) 
+    public void reduce(Text key, Iterable<HMapKIW> values, Context context) 
         throws IOException, InterruptedException{
-      int sum = 0;
-      for(IntWritable value : values){
-        sum += value.get();
+
+      for(HMapKIW pairs : values){
+        for(String currentKey : pairs.keySet()) {
+          if (MAP.containsKey(currentKey)) {
+            int sum = MAP.get(currentKey) + pairs.get(currentKey);
+            MAP.put(currentKey, sum);
+          } else {
+            MAP.put(currentKey, pairs.get(currentKey));
+          }
+        }
       }
-      SUM.set(sum);
-      context.write(pair, SUM);
+      context.write(key, pairs.get(key));
     }
   }
 
-  private static class MySecondReducer extends Reducer<PairOfStrings, IntWritable, PairOfStrings, DoubleWritable> {
+  private static class MySecondReducer extends Reducer<Text, HMapKIW, PairOfStrings, DoubleWritable> {
     
     private static Map<String, Integer> wordCount = new HashMap<String, Integer>();
+    private static PairOfStrings PAIR = new PairOfStrings();
     private static DoubleWritable PMI = new DoubleWritable();
     private static long totalLines;
+    private static Map<String, Integer> MAP = new HashMap<String, Integer>();
     
     @Override
     public void setup(Context context) throws IOException{
       Configuration conf = context.getConfiguration();
       totalLines = conf.getLong("counter", 0L);
 
-      FileSystem fs = FileSystem.get(conf);
-      
-      Path inFile = new Path("/u8/v2kovac/cs489/bigdata2016w/intermediate/part-r-00000");
-
-      if(!fs.exists(inFile)){
-        throw new IOException("File Not Found: " + inFile.toString());
-      }
-      
-      BufferedReader reader = null;
-      try{
-        FSDataInputStream in = fs.open(inFile);
-        InputStreamReader inStream = new InputStreamReader(in);
-        reader = new BufferedReader(inStream);
-        
-      } catch(FileNotFoundException e){
-        throw new IOException("Exception thrown when trying to open file.");
-      }
-      
-      
-      String line = reader.readLine();
-      while(line != null){
-        String[] parts = line.split("\\s+");
-        if(parts.length != 2){
-          LOG.info("Input line did not have exactly 2 tokens: '" + line + "'");
-        } else {
-          wordCount.put(parts[0], Integer.parseInt(parts[1]));
+      try {
+        FileSystem fs = FileSystem.get(conf);
+        FileStatus[] status = fs.listStatus(new Path("intermediate/"));
+        for (int i=0; i < status.length; i++) {
+          BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(status[i].getPath()),"UTF-8"));
+          String line = br.readLine();
+          while(line != null){
+            String[] tokens = line.split("\\s+");
+            if(tokens.length == 2){
+              wordCount.put(tokens[0], Integer.parseInt(tokens[1]));
+            }
+            line = br.readLine();
+          }
         }
-        line = reader.readLine();
+      } catch (Exception e) {
+        throw new IOException("FILE DOESN'T EXIST or CAN'T OPEN FILE");
       }
-      
-      reader.close();
       
     }
     
     @Override
-    public void reduce(PairOfStrings pair, Iterable<IntWritable> values, Context context ) 
+    public void reduce(Text key, Iterable<HMapKIW> values, Context context ) 
         throws IOException, InterruptedException{
 
-      int sumOfPair = 0;
-      for (IntWritable value : values) {
-        sumOfPair += value.get();
+      for(HMapKIW pairs : values){
+        for(String curKey : pairs.keySet()){
+          if(MAP.containsKey(curKey)){
+            int sum = MAP.get(curKey) + pairs.get(curKey);
+            MAP.put(key, sum);
+          }else{
+            MAP.put(key, pairs.get(curKey));
+          }
+        }
+      }
+
+      String leftTerm = key.toString();
+
+      for(String curKey : MAP.keySet()){
+        PAIR.set(leftTerm, curKey);
+
+        double probPair = (double)MAP.get(curKey) / (double)totalLines;
+        double probLeft = (double)wordCount.get(leftTerm) / (double)totalLines;
+        double probRight = (double)wordCount.get(curKey) / (double)totalLines;
+
+        double pmi = Math.log((double)probPair / ((double)probLeft * (double)probRight));
+
+        PMI.set(pmi);
+        context.write(PAIR, PMI);
+
       }
       
-      if (sumOfPair >= 10){
-        String left = pair.getLeftElement();
-        String right = pair.getRightElement();
-
-        double probPair = (double)sumOfPair / (double)totalLines;
-        double probLeft = (double)wordCount.get(left) / (double)totalLines;
-        double probRight = (double)wordCount.get(right) / (double)totalLines;
-
-        double pmi = Math.log10((double)probPair / ((double)probLeft * (double)probRight));
-
-        pair.set(left, right);
-        PMI.set(pmi);
-        context.write(pair, PMI);
-      }
+      MAP.clear();
 
     }
 
@@ -257,9 +266,14 @@ public class StripesPMI extends Configured implements Tool {
     job.setJarByClass(StripesPMI.class);
 
     job.setNumReduceTasks(args.numReducers);
+    job.getConfiguration().setInt("mapred.max.split.size", 1024 * 1024 * 64);
+    job.getConfiguration().set("mapreduce.map.memory.mb", "3072");
+    job.getConfiguration().set("mapreduce.map.java.opts", "-Xmx3072m");
+    job.getConfiguration().set("mapreduce.reduce.memory.mb", "3072");
+    job.getConfiguration().set("mapreduce.reduce.java.opts", "-Xmx3072m");
 
     FileInputFormat.setInputPaths(job, new Path(args.input));
-    FileOutputFormat.setOutputPath(job, new Path("/u8/v2kovac/cs489/bigdata2016w/intermediate/"));
+    FileOutputFormat.setOutputPath(job, new Path("intermediate/"));
 
     job.setMapOutputKeyClass(Text.class);
     job.setMapOutputValueClass(IntWritable.class);
@@ -272,7 +286,7 @@ public class StripesPMI extends Configured implements Tool {
     job.setReducerClass(MyReducer.class);
 
     // Delete the output directory if it exists already.
-    Path outputDir = new Path("/u8/v2kovac/cs489/bigdata2016w/intermediate/");
+    Path outputDir = new Path("intermediate/");
     FileSystem.get(conf).delete(outputDir, true);
 
     long startTime = System.currentTimeMillis();
@@ -283,16 +297,21 @@ public class StripesPMI extends Configured implements Tool {
     long mapCount = job.getCounters().findCounter(MyMapper.MyCounter.COUNTER_NAME).getValue();
     conf.setLong("counter", mapCount);
     Job job2 = Job.getInstance(conf);
-    job2.setJobName(StripesPMI.class.getSimpleName() + "PMI");
+    job2.setJobName(StripesPMI.class.getSimpleName() + " PMI");
     job2.setJarByClass(StripesPMI.class);
 
     job2.setNumReduceTasks(args.numReducers);
+    job2.getConfiguration().setInt("mapred.max.split.size", 1024 * 1024 * 64);
+    job2.getConfiguration().set("mapreduce.map.memory.mb", "3072");
+    job2.getConfiguration().set("mapreduce.map.java.opts", "-Xmx3072m");
+    job2.getConfiguration().set("mapreduce.reduce.memory.mb", "3072");
+    job2.getConfiguration().set("mapreduce.reduce.java.opts", "-Xmx3072m");
 
     FileInputFormat.setInputPaths(job2, new Path(args.input));
     FileOutputFormat.setOutputPath(job2, new Path(args.output));
 
-    job2.setOutputKeyClass(PairOfStrings.class);
-    job2.setOutputValueClass(IntWritable.class);
+    job2.setOutputKeyClass(Text.class);
+    job2.setOutputValueClass(HMapKIW.class);
     job2.setOutputFormatClass(TextOutputFormat.class);
 
     job2.setMapperClass(MySecondMapper.class);
