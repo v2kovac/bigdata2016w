@@ -308,6 +308,7 @@ public class StripesPMI extends Configured implements Tool {
     Path outputDir2 = new Path(args.output);
     FileSystem.get(conf).delete(outputDir2, true);
 
+    startTime = System.currentTimeMillis();
     job2.waitForCompletion(true);
     LOG.info("Job Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
 
