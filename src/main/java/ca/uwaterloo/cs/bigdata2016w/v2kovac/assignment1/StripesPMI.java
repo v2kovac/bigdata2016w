@@ -127,7 +127,7 @@ public class StripesPMI extends Configured implements Tool {
           }
         }
         KEY.set(words[i]);
-        context.set(KEY,MAP);
+        context.write(KEY,MAP);
         MAP.clear();
       }
     }
