@@ -26,45 +26,45 @@ obtained from the side data. It is then output as ((word1, word2), PMI).
 
 Question 2:
 -----------
-Running on linux.student.cs.uwaterloo.ca
-Pairs: Job1 6.062 + Job2 49.786 = 55.848 seconds
-Stripes: Job1 6.098 + Job2 14.742 = 20.840 seconds
+Running on linux.student.cs.uwaterloo.ca  
+Pairs: Job1 6.062 + Job2 49.786 = 55.848 seconds  
+Stripes: Job1 6.098 + Job2 14.742 = 20.840 seconds  
 
 Question 3:
 -----------
-Running on linux.student.cs.uwaterloo.ca
-Pairs: Job1 8.174 + Job2 60.773 = 68.947 seconds
-Stripes: Job1 9.217 + Job2 16.752 = 25.969 seconds
+Running on linux.student.cs.uwaterloo.ca  
+Pairs: Job1 8.174 + Job2 60.773 = 68.947 seconds  
+Stripes: Job1 9.217 + Job2 16.752 = 25.969 seconds  
 
 Question 4:
 -----------
-77198 line according to the python script provided
+77198 lines(ie. pairs) according to the python script provided  
 
 Question 5:
 -----------
-(maine, anjou) with PMI = 3.6331423021951013
-Margaret of Anjou is a major character in a tetrology Shakespeare wrote.
-The dowry she was attached to were the lands of Anjou and Maine therefore we would
-expect these words to appear often in the same line, and hardly ever on their own outside of
-that set of stories which gives a high PMI.
+(maine, anjou) with PMI = 3.6331423021951013  
+Margaret of Anjou is a major character in a tetrology Shakespeare wrote.  
+The dowry she was attached to were the lands of Anjou and Maine therefore we would  
+expect these words to appear often in the same line, and hardly ever on their own outside of  
+that set of stories which gives a high PMI.  
 
 Question 6:
 -----------
-(tears, shed)       2.1117900768762365
-(tears, salt)       2.0528122169168985
-(tears, eyes)       1.1651669643071034
+(tears, shed)       2.1117900768762365  
+(tears, salt)       2.0528122169168985  
+(tears, eyes)       1.1651669643071034  
 
-(death, father's)   1.1202520304197314
-(death, die)        0.7541593889996885
-(death, life)       0.7381345918721788
+(death, father's)   1.1202520304197314  
+(death, die)        0.7541593889996885  
+(death, life)       0.7381345918721788  
 
 
 Question 7:
 -----------
-(waterloo, kitchener)   2.614997334922472
-(waterloo, napoleon)    1.9084397672287545
-(waterloo, napoleonic)  1.786618971523
+(waterloo, kitchener)   2.614997334922472  
+(waterloo, napoleon)    1.9084397672287545  
+(waterloo, napoleonic)  1.786618971523  
 
-(toronto, marlboros)    2.353996461343968
-(toronto, spadina)      2.3126037761857425
-(toronto, leafs)        2.3108905807416225
+(toronto, marlboros)    2.353996461343968  
+(toronto, spadina)      2.3126037761857425  
+(toronto, leafs)        2.3108905807416225  
