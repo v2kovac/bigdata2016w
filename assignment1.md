@@ -18,7 +18,7 @@ This is 2 MapReduce jobs. First job is exactly the same as Pairs.
 The Mapper of the second job emits every word with a map of the rest of the words (except itself)
 in a hashmap like so (word1, {word2:1, word3:1,..}). The reducer does the setup again
 where it gets the total lines from job 1, and a hashmap of the frequency of every word from
-the side data generated in job 1. The reducer/combiner simply does and element-wise sum of all
+the side data generated in job 1. The reducer/combiner simply does an element-wise sum of all
 the maps for a given word/key giving (word1, {word2:sum, word3:sum,...}). The reducer then loops
 through all the keys of the map of a given word, and does the same operation described in pairs
 except the P(word1,word2) is obtained from the element-wise sum map. P(word1) and P(word2) are
