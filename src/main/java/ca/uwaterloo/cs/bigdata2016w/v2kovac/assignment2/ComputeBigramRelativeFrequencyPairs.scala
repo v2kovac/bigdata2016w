@@ -1,8 +1,8 @@
 package ca.uwaterloo.cs.bigdata2016w.v2kovac.assignment2;
 
-import io.bespin.scala.util.Tokenizer
-
 import collection.mutable.HashMap
+import java.util.StringTokenizer
+import scala.collection.JavaConverters._
 
 import org.apache.log4j._
 import org.apache.hadoop.fs._
@@ -19,6 +19,12 @@ class Conf(args: Seq[String]) extends ScallopConf(args) with Tokenizer {
 
 object WordCount extends Tokenizer {
   val log = Logger.getLogger(getClass().getName())
+
+  def tokenize(s: String): List[String] = {
+    new StringTokenizer(s).asScala.toList
+      .map(_.asInstanceOf[String].toLowerCase().replaceAll("(^[^a-z]+|[^a-z]+$)", ""))
+      .filter(_.length != 0)
+  }
 
   def main(argv: Array[String]) {
     val args = new Conf(argv)
