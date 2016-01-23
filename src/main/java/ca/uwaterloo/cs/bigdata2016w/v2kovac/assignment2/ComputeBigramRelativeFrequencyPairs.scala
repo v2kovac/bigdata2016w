@@ -1,9 +1,8 @@
 package ca.uwaterloo.cs.bigdata2016w.v2kovac.assignment2;
 
 import collection.mutable.HashMap
-import java.util.StringTokenizer
 import scala.collection.JavaConverters._
-
+import java.util.StringTokenizer
 import org.apache.log4j._
 import org.apache.hadoop.fs._
 import org.apache.spark.SparkContext
@@ -25,7 +24,7 @@ class Conf(args: Seq[String]) extends ScallopConf(args) with Tokenizer  {
   val reducers = opt[Int](descr = "number of reducers", required = false, default = Some(1))
 }
 
-object WordCount extends Tokenizer {
+object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
   val log = Logger.getLogger(getClass().getName())
 
   def main(argv: Array[String]) {
@@ -35,7 +34,7 @@ object WordCount extends Tokenizer {
     log.info("Output: " + args.output())
     log.info("Number of reducers: " + args.reducers())
 
-    val conf = new SparkConf().setAppName("Word Count")
+    val conf = new SparkConf().setAppName("Bigram Pairs")
     val sc = new SparkContext(conf)
 
     val outputDir = new Path(args.output())
