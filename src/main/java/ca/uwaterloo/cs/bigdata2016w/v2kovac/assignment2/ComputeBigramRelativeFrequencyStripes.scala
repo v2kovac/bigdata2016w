@@ -39,22 +39,24 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
       .flatMap(line => {
         val m = Map[String,Map[String,Double]]()
         val tokens = tokenize(line)
-        val bigrams = tokens.sliding(2).toList.foreach(p => {
-          if (m contains p.head) {
-              val pMap = m.get(p.head).get
-              val pTail = p.tail.mkString
-              if (pMap contains pTail) {
-                  pMap += (pTail -> (pMap.get(pTail).get + 1.0))
-              } else {
-                  pMap += (pTail -> 1.0)
-              }
-          } else {
-              val pMap = Map[String,Double]()
-              pMap += (p.tail.mkString -> 1.0)
-              m += (p.head -> pMap)
-          }
-        })
-        m.keys.foldLeft(List[(String,Map[String,Double])]())((l,k) => (k,m.get(k).get) :: l)
+        if (tokens.length > 1) {
+          val bigrams = tokens.sliding(2).toList.foreach(p => {
+            if (m contains p.head) {
+                val pMap = m.get(p.head).get
+                val pTail = p.tail.mkString
+                if (pMap contains pTail) {
+                    pMap += (pTail -> (pMap.get(pTail).get + 1.0))
+                } else {
+                    pMap += (pTail -> 1.0)
+                }
+            } else {
+                val pMap = Map[String,Double]()
+                pMap += (p.tail.mkString -> 1.0)
+                m += (p.head -> pMap)
+            }
+          })
+          m.keys.foldLeft(List[(String,Map[String,Double])]())((l,k) => (k,m.get(k).get) :: l)
+        else List()
       })
       .reduceByKey((map1, map2) => {
         map1 ++ map2.map{ case (k,v) => k -> (v + map1.getOrElse(k,0.0)) }
