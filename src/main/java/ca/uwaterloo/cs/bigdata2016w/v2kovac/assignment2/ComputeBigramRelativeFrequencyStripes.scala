@@ -10,45 +10,21 @@ import org.apache.spark.SparkConf
 import org.apache.spark.Partitioner
 import org.rogach.scallop._
 import scalaz._
+import Scalaz._
+import scala.collection.mutable.Map
 
-trait Tokenizer {
-  def tokenize(s: String): List[String] = {
-    new StringTokenizer(s).asScala.toList
-      .map(_.asInstanceOf[String].toLowerCase().replaceAll("(^[^a-z]+|[^a-z]+$)", ""))
-      .filter(_.length != 0)
-  }
-}
-
-class Conf(args: Seq[String]) extends ScallopConf(args) with Tokenizer  {
+class Conf2(args: Seq[String]) extends ScallopConf(args) with Tokenizer  {
   mainOptions = Seq(input, output, reducers)
   val input = opt[String](descr = "input path", required = true)
   val output = opt[String](descr = "output path", required = true)
   val reducers = opt[Int](descr = "number of reducers", required = false, default = Some(1))
 }
 
-class HashPartitioner(partitions: Int) extends Partitioner {
-  def numPartitions: Int = partitions
-
-  def getPartition(key: Any): Int = key match {
-    case null => 0
-    case (k1,k2) => (k1.hashCode & Int.MaxValue) % numPartitions
-  }
-
-  override def equals(other: Any): Boolean = other match {
-    case h: HashPartitioner =>
-      h.numPartitions == numPartitions
-    case _ =>
-      false
-  }
-
-  override def hashCode: Int = numPartitions
-}
-
 object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
   val log = Logger.getLogger(getClass().getName())
 
   def main(argv: Array[String]) {
-    val args = new Conf(argv)
+    val args = new Conf2(argv)
 
     log.info("Input: " + args.input())
     log.info("Output: " + args.output())
