@@ -37,9 +37,9 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
     val textFile = sc.textFile(args.input())
     textFile
       .flatMap(line => {
-        val m = Map[String,Map[String,Double]]()
         val tokens = tokenize(line)
         if (tokens.length > 1) {
+          val m = Map[String,Map[String,Double]]()
           tokens.sliding(2).foreach(p => {
             if (m contains p.head) {
               val pMap = m.get(p.head).get
@@ -55,7 +55,8 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
               m += (p.head -> pMap)
             }
           })
-          m.keys.foldLeft(List[(String,Map[String,Double])]())((l,k) => (k,m.get(k).get) :: l)
+          List[(String,Map[String,Double])]()
+          //m.keys.foldLeft(List[(String,Map[String,Double])]())((l,k) => (k,m.get(k).get) :: l)
         } else List()
       })
       .reduceByKey((map1, map2) => {
