@@ -9,7 +9,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.apache.spark.Partitioner
 import org.rogach.scallop._
-import org.apache.spark.util.{CollectionsUtils, Utils}
+import scalaz._
 
 trait Tokenizer {
   def tokenize(s: String): List[String] = {
@@ -26,23 +26,25 @@ class Conf(args: Seq[String]) extends ScallopConf(args) with Tokenizer  {
   val reducers = opt[Int](descr = "number of reducers", required = false, default = Some(1))
 }
 
-// Copied HashPartition from spark docs, and changed getParition
 class HashPartitioner(partitions: Int) extends Partitioner {
   def numPartitions: Int = partitions
+
   def getPartition(key: Any): Int = key match {
     case null => 0
     case (k1,k2) => (k1.hashCode & Int.MaxValue) % numPartitions
   }
+
   override def equals(other: Any): Boolean = other match {
     case h: HashPartitioner =>
       h.numPartitions == numPartitions
     case _ =>
       false
   }
+
   override def hashCode: Int = numPartitions
 }
 
-object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
+object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
   val log = Logger.getLogger(getClass().getName())
 
   def main(argv: Array[String]) {
@@ -52,7 +54,7 @@ object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
     log.info("Output: " + args.output())
     log.info("Number of reducers: " + args.reducers())
 
-    val conf = new SparkConf().setAppName("Bigram Pairs")
+    val conf = new SparkConf().setAppName("Bigram Stripes")
     val sc = new SparkContext(conf)
 
     val outputDir = new Path(args.output())
@@ -63,20 +65,30 @@ object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
     val textFile = sc.textFile(args.input())
     textFile
       .flatMap(line => {
+        val m = Map[String,Map[String,Int]]()
         val tokens = tokenize(line)
-        if (tokens.length > 1) {
-          val bigrams = tokens.sliding(2).map(p => (p.head,p.tail.mkString)).toList
-          val individuals = tokens.init.map(w => (w,"*")).toList
-          bigrams ++ individuals
-        } else List()
+        val bigrams = tokens.sliding(2).toList.foreach(p => {
+          if (m contains p.head) {
+              val pMap = m.get(p.head).get
+              val pTail = p.tail.mkString
+              if (pMap contains pTail) {
+                  pMap += (pTail -> (pMap.get(pTail).get + 1))
+              } else {
+                  pMap += (pTail -> 1)
+              }
+          } else {
+              val pMap = Map[String,Int]()
+              pMap += (p.tail.mkString -> 1)
+              m += (p.head -> pMap)
+          }
+        })
+        m.keys.foldLeft(List[(String,Map[String,Int])]())((l,k) => (k,m.get(k).get) :: l)
       })
-      .map(bigram => (bigram, 1))
-      .reduceByKey(_ + _)
-      .repartitionAndSortWithinPartitions(new HashPartitioner(args.reducers()))
-      .map(p => p._1 match {
+      .reduceByKey(_ |+| _)
+      /*.map(p => p._1 match {
         case (_,"*") => {marginal = p._2; (p._1,p._2)}
         case (_,_) => (p._1,p._2 / marginal)
-      })
+      })*/
       .saveAsTextFile(args.output())
   }
 }
