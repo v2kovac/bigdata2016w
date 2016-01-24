@@ -34,37 +34,38 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
     val outputDir = new Path(args.output())
     FileSystem.get(sc.hadoopConfiguration).delete(outputDir, true)
 
-    var marginal = 0.0
-
     val textFile = sc.textFile(args.input())
     textFile
       .flatMap(line => {
-        val m = Map[String,Map[String,Int]]()
+        val m = Map[String,Map[String,Double]]()
         val tokens = tokenize(line)
         val bigrams = tokens.sliding(2).toList.foreach(p => {
           if (m contains p.head) {
               val pMap = m.get(p.head).get
               val pTail = p.tail.mkString
               if (pMap contains pTail) {
-                  pMap += (pTail -> (pMap.get(pTail).get + 1))
+                  pMap += (pTail -> (pMap.get(pTail).get + 1.0))
               } else {
-                  pMap += (pTail -> 1)
+                  pMap += (pTail -> 1.0)
               }
           } else {
-              val pMap = Map[String,Int]()
-              pMap += (p.tail.mkString -> 1)
+              val pMap = Map[String,Double]()
+              pMap += (p.tail.mkString -> 1.0)
               m += (p.head -> pMap)
           }
         })
-        m.keys.foldLeft(List[(String,Map[String,Int])]())((l,k) => (k,m.get(k).get) :: l)
+        m.keys.foldLeft(List[(String,Map[String,Double])]())((l,k) => (k,m.get(k).get) :: l)
       })
       .reduceByKey((map1, map2) => {
-        map1 ++ map2.map{ case (k,v) => k -> (v + map1.getOrElse(k,0)) }
+        map1 ++ map2.map{ case (k,v) => k -> (v + map1.getOrElse(k,0.0)) }
       })
-      /*.map(p => p._1 match {
-        case (_,"*") => {marginal = p._2; (p._1,p._2)}
-        case (_,_) => (p._1,p._2 / marginal)
-      })*/
+      .map(p => {
+        val sum = p._2.values.foldLeft(0.0){(a, i) => a + i}
+        p._2.keys.map(k => {
+          p._2 += (k -> (p._2.get(k).get / sum))
+        })
+        (p._1,p._2)
+      })
       .saveAsTextFile(args.output())
   }
 }
