@@ -9,8 +9,6 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.apache.spark.Partitioner
 import org.rogach.scallop._
-import scalaz._
-import Scalaz._
 import scala.collection.mutable.Map
 
 class Conf2(args: Seq[String]) extends ScallopConf(args) with Tokenizer  {
@@ -60,7 +58,9 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
         })
         m.keys.foldLeft(List[(String,Map[String,Int])]())((l,k) => (k,m.get(k).get) :: l)
       })
-      .reduceByKey(_ |+| _)
+      .reduceByKey((map1, map2) => {
+        map1 ++ map2.map{ case (k,v) => k -> (v + map1.getOrElse(k,0)) }
+      })
       /*.map(p => p._1 match {
         case (_,"*") => {marginal = p._2; (p._1,p._2)}
         case (_,_) => (p._1,p._2 / marginal)
