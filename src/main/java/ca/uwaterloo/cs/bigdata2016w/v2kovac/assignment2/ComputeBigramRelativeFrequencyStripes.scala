@@ -49,7 +49,7 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer2 {
         if (tokens.length > 1) {
           tokens.sliding(2).map(p => {
             (p.head, Map("*" -> 1.0, p.last -> 1.0))
-          }).toList
+          })
         } else List()
       })
       .reduceByKey((map1, map2) => {
