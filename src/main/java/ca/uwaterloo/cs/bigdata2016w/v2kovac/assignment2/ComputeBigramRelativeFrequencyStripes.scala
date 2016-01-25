@@ -45,32 +45,19 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer2 {
     val textFile = sc.textFile(args.input())
     textFile
       .flatMap(line => {
+        val m = Map[String,Map[String,Double]]()
         val tokens = tokenize(line)
         if (tokens.length > 1) {
-          val m = Map[String,Map[String,Double]]()
-          tokens.sliding(2).foreach(p => {
-            if (m contains p.head) {
-              val pMap = m.get(p.head).get
-              val pTail = p.tail.mkString
-              if (pMap contains pTail) {
-                pMap += (pTail -> (pMap.get(pTail).get + 1.0))
-              } else {
-                pMap += (pTail -> 1.0)
-              }
-            } else {
-              val pMap = Map[String,Double]()
-              pMap += (p.tail.mkString -> 1.0)
-              m += (p.head -> pMap)
-            }
-          })
-          m.keys.foldLeft(List[(String,Map[String,Double])]())((l,k) => (k,m.get(k).get) :: l)
+          tokens.sliding(2).map(p => {
+            (p.head, Map("*" -> 1.0, p.last -> 1.0))
+          }).toList
         } else List()
       })
       .reduceByKey((map1, map2) => {
         map1 ++ map2.map{ case (k,v) => k -> (v + map1.getOrElse(k,0.0)) }
       })
       .map(p => {
-        val sum = p._2.values.foldLeft(0.0){(a, i) => a + i}
+        val sum = p._2.get("*").get/*p._2.values.foldLeft(0.0){(a, i) => a + i}*/
         p._2.keys.map(k => {
           p._2 += (k -> (p._2.get(k).get / sum))
         })
