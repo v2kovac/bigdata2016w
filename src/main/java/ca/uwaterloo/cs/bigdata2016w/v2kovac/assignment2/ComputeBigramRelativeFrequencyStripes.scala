@@ -51,7 +51,6 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer2 {
           })
         } else List()
       })
-      .repartition(args.reducers())
       .reduceByKey((map1, map2) => {
         map1 ++ map2.map{ case (k,v) => k -> (v + map1.getOrElse(k,0.0)) }
       })
