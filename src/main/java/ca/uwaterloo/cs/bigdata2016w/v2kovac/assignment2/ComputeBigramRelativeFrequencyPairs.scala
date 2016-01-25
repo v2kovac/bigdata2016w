@@ -60,7 +60,7 @@ object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
 
     var marginal = 0.0
 
-    val textFile = sc.textFile(args.input())
+    val textFile = sc.textFile(args.input(), args.reducers())
     textFile
       .flatMap(line => {
         val tokens = tokenize(line)
