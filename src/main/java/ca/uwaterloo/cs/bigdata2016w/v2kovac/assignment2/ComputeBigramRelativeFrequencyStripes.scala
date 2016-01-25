@@ -11,14 +11,22 @@ import org.apache.spark.Partitioner
 import org.rogach.scallop._
 import scala.collection.mutable.Map
 
-class Conf2(args: Seq[String]) extends ScallopConf(args) with Tokenizer  {
+trait Tokenizer2 {
+  def tokenize(s: String): List[String] = {
+    new StringTokenizer(s).asScala.toList
+      .map(_.asInstanceOf[String].toLowerCase().replaceAll("(^[^a-z]+|[^a-z]+$)", ""))
+      .filter(_.length != 0)
+  }
+}
+
+class Conf2(args: Seq[String]) extends ScallopConf(args) with Tokenizer2  {
   mainOptions = Seq(input, output, reducers)
   val input = opt[String](descr = "input path", required = true)
   val output = opt[String](descr = "output path", required = true)
   val reducers = opt[Int](descr = "number of reducers", required = false, default = Some(1))
 }
 
-object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
+object ComputeBigramRelativeFrequencyStripes extends Tokenizer2 {
   val log = Logger.getLogger(getClass().getName())
 
   def main(argv: Array[String]) {
@@ -55,8 +63,7 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
               m += (p.head -> pMap)
             }
           })
-          List[(String,Map[String,Double])]()
-          //m.keys.foldLeft(List[(String,Map[String,Double])]())((l,k) => (k,m.get(k).get) :: l)
+          m.keys.foldLeft(List[(String,Map[String,Double])]())((l,k) => (k,m.get(k).get) :: l)
         } else List()
       })
       .reduceByKey((map1, map2) => {
