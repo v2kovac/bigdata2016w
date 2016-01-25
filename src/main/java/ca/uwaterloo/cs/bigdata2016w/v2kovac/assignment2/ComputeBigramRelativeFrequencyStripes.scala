@@ -47,7 +47,7 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer2 {
         val tokens = tokenize(line)
         if (tokens.length > 1) {
           tokens.sliding(2).map(p => {
-            (p.head, Map("*" -> 1.0, p.last -> 1.0))
+            (p.head, Map(p.last -> 1.0))
           })
         } else List()
       })
@@ -56,7 +56,7 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer2 {
         map1 ++ map2.map{ case (k,v) => k -> (v + map1.getOrElse(k,0.0)) }
       })
       .map(p => {
-        val sum = p._2.get("*").get/*p._2.values.foldLeft(0.0){(a, i) => a + i}*/
+        val sum = p._2.values.foldLeft(0.0){(a, i) => a + i}
         val result = p._2.map{ case (k,v) => k -> (p._2.get(k).get / sum)}
         (p._1,result)
       })
