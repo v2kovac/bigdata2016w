@@ -9,7 +9,6 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.apache.spark.Partitioner
 import org.rogach.scallop._
-import scala.collection.mutable.Map
 
 trait Tokenizer2 {
   def tokenize(s: String): List[String] = {
@@ -57,10 +56,8 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer2 {
       })
       .map(p => {
         val sum = p._2.get("*").get/*p._2.values.foldLeft(0.0){(a, i) => a + i}*/
-        p._2.keys.map(k => {
-          p._2 += (k -> (p._2.get(k).get / sum))
-        })
-        (p._1,p._2)
+        val result = p._2.map{ case (k,v) => k -> (p._2.get(k).get / sum)}
+        (p._1,result)
       })
       .saveAsTextFile(args.output())
   }
