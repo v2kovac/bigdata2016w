@@ -45,7 +45,8 @@ public class BooleanRetrievalCompressed extends Configured implements Tool {
     index = new MapFile.Reader[status.length];
 
     for (int i=0; i < status.length; i++) {
-      index[i] = new MapFile.Reader(new Path(indexPath + status[i].getPath()), fs.getConf());
+      if (status[i].getPath().toString().contains("SUCCESS")) continue;
+      index[i] = new MapFile.Reader(new Path("" + status[i].getPath()), fs.getConf());
     }
 
     collection = fs.open(new Path(collectionPath));
@@ -119,33 +120,24 @@ public class BooleanRetrievalCompressed extends Configured implements Tool {
     return set;
   }
 
-  private static PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>> readP(BytesWritable bytesWritable) throws IOException{
-
-    byte[] bytes = bytesWritable.getBytes();
-
-    ByteArrayInputStream postingsByteStream = new ByteArrayInputStream(bytes);
-    DataInputStream inStream = new DataInputStream(postingsByteStream);
-
-    ArrayListWritable<PairOfInts> postings = new ArrayListWritable<PairOfInts>();
+  // added to parse byte array
+  private static PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>> readP(BytesWritable bw) throws IOException{
+    byte[] bytes = bw.getBytes();
+    ByteArrayInputStream pStream = new ByteArrayInputStream(bytes);
+    DataInputStream inStream = new DataInputStream(pStream);
+    ArrayListWritable<PairOfInts> P = new ArrayListWritable<PairOfInts>();
 
     int docno = 0;
-    int nextDgap = 0;
-    int termFreq = -1;
-    int numPostings = WritableUtils.readVInt(inStream);
-    
+    int df = WritableUtils.readVInt(inStream);
 
-    for(int i = 0; i < numPostings; i++){
-
-      nextDgap = WritableUtils.readVInt(inStream);
-      termFreq = WritableUtils.readVInt(inStream);
-      
-      docno = docno + nextDgap;
-      
-      postings.add(new PairOfInts(docno, termFreq));
+    for(int i = 0; i < df; i++){
+      int docnoGap = WritableUtils.readVInt(inStream);
+      int tf = WritableUtils.readVInt(inStream);
+      docno += docnoGap;
+      P.add(new PairOfInts(docno, tf));
     }
 
-    
-    return new PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>(new IntWritable(numPostings), postings);
+    return new PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>(new IntWritable(df), P);
 
   }
 
@@ -155,7 +147,7 @@ public class BooleanRetrievalCompressed extends Configured implements Tool {
 
     key.set(term);
     int i = (term.hashCode() & Integer.MAX_VALUE) % numReducers;
-    index[i].get(key, value);
+    index[i+1].get(key, value);
 
     PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>> postings = readP(value);
 

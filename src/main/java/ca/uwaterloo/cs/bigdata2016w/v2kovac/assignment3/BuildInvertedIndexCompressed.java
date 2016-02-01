@@ -1,6 +1,8 @@
 package ca.uwaterloo.cs.bigdata2016w.v2kovac.assignment3;
 
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -13,6 +15,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.WritableUtils;
+import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -81,15 +85,16 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
   }
 
   private static class MyReducer extends
-      Reducer<PairOfStringInt, IntWritable, Text, PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>> {
+      Reducer<PairOfStringInt, IntWritable, Text, BytesWritable> {
     private final static IntWritable DF = new IntWritable();
     private final static Text WORD = new Text("");
-    ArrayListWritable<PairOfInts> postings = new ArrayListWritable<PairOfInts>();
+    private final static ByteArrayOutputStream pStream = new ByteArrayOutputStream();
+    private final static DataOutputStream outStream = new DataOutputStream(pStream);
+
     String prevTerm = "";
     int df = 0;
     int prevDocno = 0;
     int currentDocno = 0;
-    int gapDocno = 0;
 
     @Override
     public void reduce(PairOfStringInt key, Iterable<IntWritable> values, Context context)
@@ -97,19 +102,27 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
       Iterator<IntWritable> iter = values.iterator();
 
       if (!key.getLeftElement().equals(prevTerm) && !prevTerm.equals("")) {
+        outStream.flush();
+        pStream.flush();
+        ByteArrayOutputStream toWrite = new ByteArrayOutputStream(postingStream.size());
+        DataOutputStream out = new DataOutputStream(toWrite);
+        WritableUtils.writeVInt(out, df);
+        out.write(pStream.toByteArray());
+
         WORD.set(prevTerm);
-        DF.set(df);
-        context.write(WORD, new PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>(DF, postings));
-        postings.clear();
+        context.write(WORD, new BytesWritable(toWrite.toByteArray()));
+
+        pStream.reset();
+        prevDocno = 0;
         df = 0;
       }
 
       //only loops once
       while (iter.hasNext()) {
-        currentDocno = key.getRightElement();
-        gapDocno = currentDocno - prevDocno;
-        postings.add(new PairOfInts(gapDocno, iter.next().get()));
         df++;
+        currentDocno = key.getRightElement();
+        WritableUtils.writeVInt(outStream, (currentDocno - prevDocno));
+        WritableUtils.writeVInt(outStream, iter.next().get());
         prevDocno = currentDocno;
       }
       prevTerm = key.getLeftElement();
@@ -117,9 +130,19 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
 
     @Override
     public void cleanup(Context context) throws IOException, InterruptedException {
+      outStream.flush();
+      pStream.flush();
+
+      ByteArrayOutputStream toWrite = new ByteArrayOutputStream(pStream.size());
+      DataOutputStream out = new DataOutputStream(toWrite);
+      WritableUtils.writeVInt(out, df);
+      out.write(pStream.toByteArray());
+
       WORD.set(prevTerm);
-      DF.set(df);
-      context.write(WORD, new PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>(DF, postings));
+      context.write(WORD, new BytesWritable(toWrite.toByteArray()));
+
+      pStream.close();
+      outStream.close(); 
     }
   }
 
@@ -160,7 +183,7 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     job.setJobName(BuildInvertedIndexCompressed.class.getSimpleName());
     job.setJarByClass(BuildInvertedIndexCompressed.class);
 
-    job.setNumReduceTasks(args.numReducers);//args.numReducers);
+    job.setNumReduceTasks(args.numReducers);
 
     FileInputFormat.setInputPaths(job, new Path(args.input));
     FileOutputFormat.setOutputPath(job, new Path(args.output));
@@ -168,9 +191,9 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     job.setMapOutputKeyClass(PairOfStringInt.class);
     job.setMapOutputValueClass(IntWritable.class);
     job.setOutputKeyClass(Text.class);
-    job.setOutputValueClass(PairOfWritables.class);
-    //job.setOutputFormatClass(MapFileOutputFormat.class);
-    job.setOutputFormatClass(TextOutputFormat.class); //delete
+    job.setOutputValueClass(BytesWritable.class);
+    job.setOutputFormatClass(MapFileOutputFormat.class);
+    //job.setOutputFormatClass(TextOutputFormat.class); //delete
 
     job.setMapperClass(MyMapper.class);
     job.setReducerClass(MyReducer.class);
