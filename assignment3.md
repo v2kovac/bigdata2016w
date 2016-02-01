@@ -8,14 +8,14 @@ Question 2
 
 Question 3
 ----------
-Eurostar
-Railway platform
-Andy Bechtolsheim
-List of civil parishes in Hampshire
-Institute for Quantum Computing The Institute for Quantum Computing...
-List of University of Wisconsin–Madison people in academics
+Eurostar  
+Railway platform  
+Andy Bechtolsheim  
+List of civil parishes in Hampshire  
+Institute for Quantum Computing The Institute for Quantum Computing...  
+List of University of Wisconsin–Madison people in academics  
 
 Question 4
 ----------
-Amazon.com
-Criticism of Facebook
+Amazon.com  
+Criticism of Facebook  
