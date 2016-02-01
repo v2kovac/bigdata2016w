@@ -16,9 +16,11 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
@@ -32,15 +34,17 @@ import tl.lin.data.fd.Object2IntFrequencyDistribution;
 import tl.lin.data.fd.Object2IntFrequencyDistributionEntry;
 import tl.lin.data.pair.PairOfInts;
 import tl.lin.data.pair.PairOfObjectInt;
+import tl.lin.data.pair.PairOfStringInt;
 import tl.lin.data.pair.PairOfWritables;
 
 public class BuildInvertedIndexCompressed extends Configured implements Tool {
   private static final Logger LOG = Logger.getLogger(BuildInvertedIndexCompressed.class);
 
-  private static class MyMapper extends Mapper<LongWritable, Text, Text, PairOfInts> {
+  private static class MyMapper extends Mapper<LongWritable, Text, PairOfStringInt, IntWritable> {
     private static final Text WORD = new Text();
     private static final Object2IntFrequencyDistribution<String> COUNTS =
         new Object2IntFrequencyDistributionEntry<String>();
+    private static final IntWritable TF = new IntWritable();
 
     @Override
     public void map(LongWritable docno, Text doc, Context context)
@@ -65,13 +69,21 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
       // Emit postings.
       for (PairOfObjectInt<String> e : COUNTS) {
         WORD.set(e.getLeftElement());
-        context.write(WORD, new PairOfInts((int) docno.get(), e.getRightElement()));
+        TF.set(e.getRightElement());
+        context.write(new PairOfStringInt(e.getLeftElement(), (int) docno.get()), TF);
       }
     }
   }
 
-  private static class MyReducer extends
-      Reducer<Text, PairOfInts, Text, PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>> {
+  protected static class MyPartitioner extends Partitioner<PairOfStringInt, IntWritable> {
+    @Override
+    public int getPartition(PairOfStringInt key, IntWritable value, int numReduceTasks) {
+      return (key.getLeftElement().hashCode() & Integer.MAX_VALUE) % numReduceTasks;
+    }
+  }
+
+  /*private static class MyReducer extends
+      Reducer<PairOfObjectInt, IntWritable, Text, PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>> {
     private final static IntWritable DF = new IntWritable();
 
     @Override
@@ -93,7 +105,7 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
       context.write(key,
           new PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>(DF, postings));
     }
-  }
+  }*/
 
   private BuildInvertedIndexCompressed() {}
 
@@ -103,6 +115,9 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
 
     @Option(name = "-output", metaVar = "[path]", required = true, usage = "output path")
     public String output;
+
+    @Option(name = "-reducers", metaVar = "[num]", required = false, usage = "number of reducers")
+    public int numReducers = 1;
   }
 
   /**
@@ -123,24 +138,27 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     LOG.info("Tool: " + BuildInvertedIndexCompressed.class.getSimpleName());
     LOG.info(" - input path: " + args.input);
     LOG.info(" - output path: " + args.output);
+    LOG.info(" - number of reducers: " + args.numReducers);
 
     Job job = Job.getInstance(getConf());
     job.setJobName(BuildInvertedIndexCompressed.class.getSimpleName());
     job.setJarByClass(BuildInvertedIndexCompressed.class);
 
-    job.setNumReduceTasks(1);
+    job.setNumReduceTasks(args.numReducers);
 
     FileInputFormat.setInputPaths(job, new Path(args.input));
     FileOutputFormat.setOutputPath(job, new Path(args.output));
 
-    job.setMapOutputKeyClass(Text.class);
-    job.setMapOutputValueClass(PairOfInts.class);
-    job.setOutputKeyClass(Text.class);
-    job.setOutputValueClass(PairOfWritables.class);
-    job.setOutputFormatClass(MapFileOutputFormat.class);
+    job.setMapOutputKeyClass(PairOfStringInt.class);
+    job.setMapOutputValueClass(IntWritable.class);
+    // job.setOutputKeyClass(Text.class);
+    // job.setOutputValueClass(PairOfWritables.class);
+    // job.setOutputFormatClass(MapFileOutputFormat.class);
+    job.setOutputFormatClass(TextOutputFormat.class); //delete
 
     job.setMapperClass(MyMapper.class);
-    job.setReducerClass(MyReducer.class);
+    //job.setReducerClass(MyReducer.class);
+    job.setPartitionerClass(MyPartitioner.class);
 
     // Delete the output directory if it exists already.
     Path outputDir = new Path(args.output);
