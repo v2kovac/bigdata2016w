@@ -104,7 +104,7 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
       if (!key.getLeftElement().equals(prevTerm) && !prevTerm.equals("")) {
         outStream.flush();
         pStream.flush();
-        ByteArrayOutputStream toWrite = new ByteArrayOutputStream(postingStream.size());
+        ByteArrayOutputStream toWrite = new ByteArrayOutputStream(pStream.size());
         DataOutputStream out = new DataOutputStream(toWrite);
         WritableUtils.writeVInt(out, df);
         out.write(pStream.toByteArray());
