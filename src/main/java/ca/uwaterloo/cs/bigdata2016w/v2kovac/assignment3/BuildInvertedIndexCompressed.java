@@ -41,7 +41,6 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
   private static final Logger LOG = Logger.getLogger(BuildInvertedIndexCompressed.class);
 
   private static class MyMapper extends Mapper<LongWritable, Text, PairOfStringInt, IntWritable> {
-    private static final Text WORD = new Text();
     private static final Object2IntFrequencyDistribution<String> COUNTS =
         new Object2IntFrequencyDistributionEntry<String>();
     private static final IntWritable TF = new IntWritable();
@@ -68,7 +67,6 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
 
       // Emit postings.
       for (PairOfObjectInt<String> e : COUNTS) {
-        WORD.set(e.getLeftElement());
         TF.set(e.getRightElement());
         context.write(new PairOfStringInt(e.getLeftElement(), (int) docno.get()), TF);
       }
@@ -82,30 +80,42 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     }
   }
 
-  /*private static class MyReducer extends
-      Reducer<PairOfObjectInt, IntWritable, Text, PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>> {
+  private static class MyReducer extends
+      Reducer<PairOfStringInt, IntWritable, Text, PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>> {
     private final static IntWritable DF = new IntWritable();
+    private final static Text WORD = new Text("");
+    ArrayListWritable<PairOfInts> postings = new ArrayListWritable<PairOfInts>();
+    String prevTerm = "";
+    int df = 0;
 
     @Override
-    public void reduce(Text key, Iterable<PairOfInts> values, Context context)
+    public void reduce(PairOfStringInt key, Iterable<IntWritable> values, Context context)
         throws IOException, InterruptedException {
-      Iterator<PairOfInts> iter = values.iterator();
-      ArrayListWritable<PairOfInts> postings = new ArrayListWritable<PairOfInts>();
+      Iterator<IntWritable> iter = values.iterator();
 
-      int df = 0;
-      while (iter.hasNext()) {
-        postings.add(iter.next().clone());
-        df++;
+      if (!key.getLeftElement().equals(prevTerm) && !prevTerm.equals("")) {
+        WORD.set(prevTerm);
+        DF.set(df);
+        context.write(WORD, new PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>(DF, postings));
+        postings.clear();
+        df = 0;
       }
 
-      // Sort the postings by docno ascending.
-      Collections.sort(postings);
-
-      DF.set(df);
-      context.write(key,
-          new PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>(DF, postings));
+      //only loops once
+      while (iter.hasNext()) {
+        postings.add(new PairOfInts(key.getRightElement(), iter.next().get()));
+        df++;
+      }
+      prevTerm = key.getLeftElement();
     }
-  }*/
+
+    @Override
+    public void cleanup(Context context) throws IOException, InterruptedException {
+      WORD.set(prevTerm);
+      DF.set(df);
+      context.write(WORD, new PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>(DF, postings));
+    }
+  }
 
   private BuildInvertedIndexCompressed() {}
 
@@ -144,20 +154,20 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     job.setJobName(BuildInvertedIndexCompressed.class.getSimpleName());
     job.setJarByClass(BuildInvertedIndexCompressed.class);
 
-    job.setNumReduceTasks(args.numReducers);
+    job.setNumReduceTasks(1);//args.numReducers);
 
     FileInputFormat.setInputPaths(job, new Path(args.input));
     FileOutputFormat.setOutputPath(job, new Path(args.output));
 
     job.setMapOutputKeyClass(PairOfStringInt.class);
     job.setMapOutputValueClass(IntWritable.class);
-    // job.setOutputKeyClass(Text.class);
-    // job.setOutputValueClass(PairOfWritables.class);
-    // job.setOutputFormatClass(MapFileOutputFormat.class);
-    job.setOutputFormatClass(TextOutputFormat.class); //delete
+    job.setOutputKeyClass(Text.class);
+    job.setOutputValueClass(PairOfWritables.class);
+    job.setOutputFormatClass(MapFileOutputFormat.class);
+    //job.setOutputFormatClass(TextOutputFormat.class); //delete
 
     job.setMapperClass(MyMapper.class);
-    //job.setReducerClass(MyReducer.class);
+    job.setReducerClass(MyReducer.class);
     job.setPartitionerClass(MyPartitioner.class);
 
     // Delete the output directory if it exists already.
