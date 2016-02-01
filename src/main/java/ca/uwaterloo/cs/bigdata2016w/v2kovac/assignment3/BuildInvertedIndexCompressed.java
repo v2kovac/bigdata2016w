@@ -87,6 +87,9 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     ArrayListWritable<PairOfInts> postings = new ArrayListWritable<PairOfInts>();
     String prevTerm = "";
     int df = 0;
+    int prevDocno = 0;
+    int currentDocno = 0;
+    int gapDocno = 0;
 
     @Override
     public void reduce(PairOfStringInt key, Iterable<IntWritable> values, Context context)
@@ -103,8 +106,11 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
 
       //only loops once
       while (iter.hasNext()) {
-        postings.add(new PairOfInts(key.getRightElement(), iter.next().get()));
+        currentDocno = key.getRightElement();
+        gapDocno = currentDocno - prevDocno;
+        postings.add(new PairOfInts(gapDocno, iter.next().get()));
         df++;
+        prevDocno = currentDocno;
       }
       prevTerm = key.getLeftElement();
     }
@@ -154,7 +160,7 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     job.setJobName(BuildInvertedIndexCompressed.class.getSimpleName());
     job.setJarByClass(BuildInvertedIndexCompressed.class);
 
-    job.setNumReduceTasks(1);//args.numReducers);
+    job.setNumReduceTasks(args.numReducers);//args.numReducers);
 
     FileInputFormat.setInputPaths(job, new Path(args.input));
     FileOutputFormat.setOutputPath(job, new Path(args.output));
@@ -163,8 +169,8 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     job.setMapOutputValueClass(IntWritable.class);
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(PairOfWritables.class);
-    job.setOutputFormatClass(MapFileOutputFormat.class);
-    //job.setOutputFormatClass(TextOutputFormat.class); //delete
+    //job.setOutputFormatClass(MapFileOutputFormat.class);
+    job.setOutputFormatClass(TextOutputFormat.class); //delete
 
     job.setMapperClass(MyMapper.class);
     job.setReducerClass(MyReducer.class);

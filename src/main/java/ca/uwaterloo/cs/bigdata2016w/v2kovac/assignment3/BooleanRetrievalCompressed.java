@@ -3,6 +3,8 @@ package ca.uwaterloo.cs.bigdata2016w.v2kovac.assignment3;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
 import java.util.Set;
 import java.util.Stack;
 import java.util.TreeSet;
@@ -11,10 +13,13 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.MapFile;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.kohsuke.args4j.CmdLineException;
@@ -27,14 +32,22 @@ import tl.lin.data.pair.PairOfInts;
 import tl.lin.data.pair.PairOfWritables;
 
 public class BooleanRetrievalCompressed extends Configured implements Tool {
-  private MapFile.Reader index;
+  private MapFile.Reader[] index;
   private FSDataInputStream collection;
   private Stack<Set<Integer>> stack;
+  private int numReducers;
 
   private BooleanRetrievalCompressed() {}
 
   private void initialize(String indexPath, String collectionPath, FileSystem fs) throws IOException {
-    index = new MapFile.Reader(new Path(indexPath + "/part-r-00000"), fs.getConf());
+    FileStatus[] status = fs.listStatus(new Path(indexPath));
+    numReducers = status.length - 1;
+    index = new MapFile.Reader[status.length];
+
+    for (int i=0; i < status.length; i++) {
+      index[i] = new MapFile.Reader(new Path(indexPath + status[i].getPath()), fs.getConf());
+    }
+
     collection = fs.open(new Path(collectionPath));
     stack = new Stack<Set<Integer>>();
   }
@@ -106,15 +119,47 @@ public class BooleanRetrievalCompressed extends Configured implements Tool {
     return set;
   }
 
+  private static PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>> readP(BytesWritable bytesWritable) throws IOException{
+
+    byte[] bytes = bytesWritable.getBytes();
+
+    ByteArrayInputStream postingsByteStream = new ByteArrayInputStream(bytes);
+    DataInputStream inStream = new DataInputStream(postingsByteStream);
+
+    ArrayListWritable<PairOfInts> postings = new ArrayListWritable<PairOfInts>();
+
+    int docno = 0;
+    int nextDgap = 0;
+    int termFreq = -1;
+    int numPostings = WritableUtils.readVInt(inStream);
+    
+
+    for(int i = 0; i < numPostings; i++){
+
+      nextDgap = WritableUtils.readVInt(inStream);
+      termFreq = WritableUtils.readVInt(inStream);
+      
+      docno = docno + nextDgap;
+      
+      postings.add(new PairOfInts(docno, termFreq));
+    }
+
+    
+    return new PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>(new IntWritable(numPostings), postings);
+
+  }
+
   private ArrayListWritable<PairOfInts> fetchPostings(String term) throws IOException {
     Text key = new Text();
-    PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>> value =
-        new PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>();
+    BytesWritable value = new BytesWritable();
 
     key.set(term);
-    index.get(key, value);
+    int i = (term.hashCode() & Integer.MAX_VALUE) % numReducers;
+    index[i].get(key, value);
 
-    return value.getRightElement();
+    PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>> postings = readP(value);
+
+    return postings.getRightElement();
   }
 
   public String fetchLine(long offset) throws IOException {
