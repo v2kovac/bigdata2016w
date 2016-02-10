@@ -18,4 +18,23 @@ List of University of Wisconsin–Madison people in academics
 Question 4
 ----------
 Amazon.com  
-Criticism of Facebook  
+Criticism of Facebook 
+
+Marks
+
+Q1 5
+Q2a 5
+Q2b 5
+Q3 5
+
+Q4 5
+Q5a 5
+Q5b 5
+Q6 5
+
+AC 5
+LC 5
+
+Total 50
+
+Comments
