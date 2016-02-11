@@ -2,6 +2,7 @@ package ca.uwaterloo.cs.bigdata2016w.v2kovac.assignment4;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.ArrayList;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -47,6 +48,7 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
   private static class MyMapper extends Mapper<LongWritable, Text, IntWritable, PageRankNode> {
     private static final IntWritable nid = new IntWritable();
     private static final PageRankNode node = new PageRankNode();
+    private static ArrayList<Integer> intSources = new ArrayList<Integer>();
 
     @Override
     public void setup(Mapper<LongWritable, Text, IntWritable, PageRankNode>.Context context) {
@@ -54,8 +56,13 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
       if (n == 0) {
         throw new RuntimeException(NODE_CNT_FIELD + " cannot be 0!");
       }
+
+      String[] sources = context.getConfiguration().getStrings("sources");
+      for(String source: sources) {
+        intSources.add(Integer.valueOf(source));
+      }
+
       node.setType(PageRankNode.Type.Complete);
-      node.setPageRank((float) -StrictMath.log(n));
     }
 
     @Override
@@ -86,6 +93,14 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
         context.getCounter("graph", "numActiveNodes").increment(1);
       }
 
+      //set log probabilities
+      for(Integer i: intSources) {
+        if (node.getNodeId() == i)
+          node.setPageRank((float) StrictMath.log(1));
+        else
+          node.setPageRank((float) StrictMath.log(0));
+      }
+
       context.write(nid, node);
     }
   }
@@ -95,6 +110,7 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
   private static final String INPUT = "input";
   private static final String OUTPUT = "output";
   private static final String NUM_NODES = "numNodes";
+  private static final String SOURCES = "sources";
 
   /**
    * Runs this tool.
@@ -109,6 +125,8 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
         .withDescription("output path").create(OUTPUT));
     options.addOption(OptionBuilder.withArgName("num").hasArg()
         .withDescription("number of nodes").create(NUM_NODES));
+    options.addOption(OptionBuilder.withArgName("sources").hasArg()
+        .withDescription("source nodes").create(SOURCES));
 
     CommandLine cmdline;
     CommandLineParser parser = new GnuParser();
@@ -132,6 +150,7 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
     String inputPath = cmdline.getOptionValue(INPUT);
     String outputPath = cmdline.getOptionValue(OUTPUT);
     int n = Integer.parseInt(cmdline.getOptionValue(NUM_NODES));
+    String sources = cmdline.getOptionValue(SOURCES);
 
     LOG.info("Tool name: " + BuildPersonalizedPageRankRecords.class.getSimpleName());
     LOG.info(" - inputDir: " + inputPath);
@@ -141,6 +160,7 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
     Configuration conf = getConf();
     conf.setInt(NODE_CNT_FIELD, n);
     conf.setInt("mapred.min.split.size", 1024 * 1024 * 1024);
+    conf.setStrings("sources", sources);
 
     Job job = Job.getInstance(conf);
     job.setJobName(BuildPersonalizedPageRankRecords.class.getSimpleName() + ":" + inputPath);
