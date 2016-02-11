@@ -16,8 +16,10 @@ import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -44,55 +46,6 @@ import tl.lin.data.pair.PairOfObjectFloat;
  */
 public class ExtractTopPersonalizedPageRankNodes extends Configured implements Tool {
   private static final Logger LOG = Logger.getLogger(ExtractTopPersonalizedPageRankNodes.class);
-
-  private static class MapClass extends Mapper<IntWritable, PageRankNode, IntWritable, PageRankNode> {
-    private static ArrayList<TopScoredObjects<Integer>> top = new ArrayList<TopScoredObjects<Integer>>();
-    private static HashMap<Integer,Integer> mapper = new HashMap<Integer,Integer>();
-    private static int numSources;
-    private static int max;
-
-    @Override
-    public void setup(Context context) throws IOException {
-      Configuration conf = context.getConfiguration();
-
-      max = conf.getInt("Top", 0);
-
-      String[] sources = conf.getStrings("sources");
-      for(int i=0; i < sources.length; i++) {
-        top.add(new TopScoredObjects<Integer>(max));
-        mapper.put(i, Integer.valueOf(sources[i]));
-      }
-      numSources = sources.length;
-    }
-
-    @Override
-    public void map(IntWritable nid, PageRankNode node, Context context)
-        throws IOException, InterruptedException {
-
-      int i =0;
-      for(TopScoredObjects<Integer> list: top) {
-        list.add(nid.get(), node.getPageRank(i));
-        i++;
-      }
-
-    }
-
-    @Override
-    public void cleanup(Context context) throws IOException {
-      //print results
-      for(int i=0; i < numSources; i++) {
-        System.out.println("Source: " + mapper.get(i));
-
-        TopScoredObjects<Integer> list = top.get(i);
-        for(PairOfObjectFloat<Integer> p : list.extractAll()){
-          int nodeid = p.getLeftElement();
-          float pagerank = (float) Math.exp(p.getRightElement());
-          System.out.println(String.format("%.5f %d", pagerank, nodeid));
-        }
-        System.out.println();
-      }
-    }
-  }
 
   public static void main(String[] args) throws Exception {
     ToolRunner.run(new ExtractTopPersonalizedPageRankNodes(), args);
@@ -153,28 +106,51 @@ public class ExtractTopPersonalizedPageRankNodes extends Configured implements T
     conf.setInt("Top", max);
     conf.setStrings("sources", sources);
 
-    Job job = Job.getInstance(conf);
-    job.setJobName(ExtractTopPersonalizedPageRankNodes.class.getSimpleName() + ":" + inPath);
-    job.setJarByClass(ExtractTopPersonalizedPageRankNodes.class);
-
-    FileInputFormat.setInputPaths(job, new Path(inPath));
-    FileOutputFormat.setOutputPath(job, new Path(outPath));
-
-    job.setInputFormatClass(NonSplitableSequenceFileInputFormat.class);
-    job.setOutputFormatClass(SequenceFileOutputFormat.class);
-
-    job.setMapOutputKeyClass(IntWritable.class);
-    job.setMapOutputValueClass(PageRankNode.class);
-
-    job.setOutputKeyClass(IntWritable.class);
-    job.setOutputValueClass(PageRankNode.class);
-
-    job.setMapperClass(MapClass.class);
-
-    FileSystem.get(conf).delete(new Path(outPath), true);
-
-    job.waitForCompletion(true);
+    //this approach works for multiple splits... other approach did not :(
+    getAnswers(inPath, sources.split(','), max);
 
     return 0;
+  }
+
+  private void getAnswers(String inputPathString, String[] sources, int numResults) throws IOException, InstantiationException, IllegalAccessException {
+    ArrayList<TopScoredObjects<Integer>> top = new ArrayList<TopScoredObjects<Integer>>();
+    for(int i = 0; i < sources.length; i++){
+      top.add(i, new TopScoredObjects<Integer>(numResults));
+    }
+    
+    Configuration conf = new Configuration();
+    Path inputPath = new Path(inputPathString);
+    FileSystem fs = FileSystem.get(conf);
+    
+    for(FileStatus stat : fs.listStatus(inputPath)){
+      Path filePath = stat.getPath();
+      //Success is bad
+      if (filePath.toString().contains("SUCCESS")) continue;
+      
+      SequenceFile.Reader reader = new SequenceFile.Reader(FileSystem.get(conf), filePath, conf);
+      
+      IntWritable key = (IntWritable) reader.getKeyClass().newInstance();
+      PageRankNode value = (PageRankNode) reader.getValueClass().newInstance();
+      
+      while(reader.next(key, value)){
+        for(int i = 0; i < sources.length; i++){
+          top.get(i).add(key.get(), value.getPageRank(i));
+        }
+      }
+      reader.close();
+    }
+    
+    
+    for(int i = 0; i < sources.length; i++){
+      System.out.println("Source: " + sources[i]);
+      TopScoredObjects<Integer> list = top.get(i);
+
+      for(PairOfObjectFloat<Integer> pair : list.extractAll()){
+        int nodeid = ((Integer) pair.getLeftElement());
+        float pagerank = (float) Math.exp(pair.getRightElement());
+        System.out.println(String.format("%.5f %d", pagerank, nodeid));
+      }
+      System.out.println();
+    }
   }
 }
