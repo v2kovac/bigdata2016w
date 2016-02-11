@@ -107,7 +107,7 @@ public class ExtractTopPersonalizedPageRankNodes extends Configured implements T
     conf.setStrings("sources", sources);
 
     //this approach works for multiple splits... other approach did not :(
-    getAnswers(inPath, sources.split(','), max);
+    getAnswers(inPath, sources.split(","), max);
 
     return 0;
   }
