@@ -3,6 +3,7 @@ package ca.uwaterloo.cs.bigdata2016w.v2kovac.assignment4;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -46,7 +47,8 @@ public class ExtractTopPersonalizedPageRankNodes extends Configured implements T
 
   private static class MapClass extends Mapper<IntWritable, PageRankNode, IntWritable, PageRankNode> {
     private static ArrayList<TopScoredObjects<Integer>> top = new ArrayList<TopScoredObjects<Integer>>();
-    private static ArrayList<Integer> intSources = new ArrayList<Integer>();
+    private static HashMap<Integer,Integer> mapper = new HashMap<Integer,Integer>();
+    private static int numSources;
     private static int max;
 
     @Override
@@ -56,10 +58,11 @@ public class ExtractTopPersonalizedPageRankNodes extends Configured implements T
       max = conf.getInt("Top", 0);
 
       String[] sources = conf.getStrings("sources");
-      for(String source: sources) {
+      for(int i=0; i < sources.length; i++) {
         top.add(new TopScoredObjects<Integer>(max));
-        intSources.add(Integer.valueOf(source));
+        mapper.put(i, Integer.valueOf(sources[i]));
       }
+      numSources = sources.length;
     }
 
     @Override
@@ -77,8 +80,8 @@ public class ExtractTopPersonalizedPageRankNodes extends Configured implements T
     @Override
     public void cleanup(Context context) throws IOException {
       //print results
-      for(int i=0; i < intSources.size(); i++) {
-        System.out.println("Source: " + intSources.get(i));
+      for(int i=0; i < numSources; i++) {
+        System.out.println("Source: " + mapper.get(i));
 
         TopScoredObjects<Integer> list = top.get(i);
         for(PairOfObjectFloat<Integer> p : list.extractAll()){

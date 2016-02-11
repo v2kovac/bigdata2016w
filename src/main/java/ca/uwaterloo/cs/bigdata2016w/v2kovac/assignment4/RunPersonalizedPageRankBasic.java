@@ -62,18 +62,6 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
     // For passing along node structure.
     private static final PageRankNode intermediateStructure = new PageRankNode();
 
-    private static HashMap<Integer, Integer> mapping = new HashMap<Integer, Integer>();
-
-    @Override
-    public void setup(Context context){
-
-      String[] sources = context.getConfiguration().getStrings("sources");
-      for(int i = 0; i < sources.length; i++){
-        mapping.put(Integer.parseInt(sources[i]), i);
-      }
-      
-    }
-
     @Override
     public void map(IntWritable nid, PageRankNode node, Context context)
         throws IOException, InterruptedException {
