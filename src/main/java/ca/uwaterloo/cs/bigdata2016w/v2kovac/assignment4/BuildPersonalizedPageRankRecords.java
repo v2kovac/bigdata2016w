@@ -63,7 +63,6 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
         intSources.add(Integer.valueOf(source));
       }
 
-      node.setPageRankList(intSources.size());
       node.setType(PageRankNode.Type.Complete);
     }
 
@@ -96,13 +95,15 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
       }
 
       //set log probabilities
+      float[] p = new float[intSources.size()];
       for(int i=0; i < intSources.size(); i++) {
         if (node.getNodeId() == intSources.get(i)) {
-          node.setPageRank(i, (float) StrictMath.log(1));
+          p[i] = (float) StrictMath.log(1);
         } else {
-          node.setPageRank(i, (float) StrictMath.log(0));
+          p[i] = (float) StrictMath.log(0);
         }
       }
+      node.setPageRankList(new ArrayListOfFloatsWritable(p));
 
       context.write(nid, node);
     }
