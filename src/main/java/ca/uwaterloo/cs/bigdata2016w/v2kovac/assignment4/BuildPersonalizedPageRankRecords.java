@@ -30,6 +30,7 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
 
 import tl.lin.data.array.ArrayListOfIntsWritable;
+import tl.lin.data.array.ArrayListOfFloatsWritable;
 
 /**
  * <p>
@@ -62,6 +63,7 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
         intSources.add(Integer.valueOf(source));
       }
 
+      node.setPageRankList(intSources.size());
       node.setType(PageRankNode.Type.Complete);
     }
 
@@ -94,11 +96,12 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
       }
 
       //set log probabilities
-      for(Integer i: intSources) {
-        if (node.getNodeId() == i)
-          node.setPageRank((float) StrictMath.log(1));
-        else
-          node.setPageRank((float) StrictMath.log(0));
+      for(int i=0; i < intSources.size(); i++) {
+        if (node.getNodeId() == intSources.get(i)) {
+          node.setPageRank(i, (float) StrictMath.log(1));
+        } else {
+          node.setPageRank(i, (float) StrictMath.log(0));
+        }
       }
 
       context.write(nid, node);
