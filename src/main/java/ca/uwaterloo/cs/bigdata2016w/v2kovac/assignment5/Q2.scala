@@ -10,7 +10,7 @@ import org.apache.spark.SparkConf
 import org.rogach.scallop._
 import org.apache.spark.util.{CollectionsUtils, Utils}
 
-class Conf(args: Seq[String]) extends ScallopConf(args) {
+class Conf2(args: Seq[String]) extends ScallopConf(args) {
   mainOptions = Seq(input, date)
   val input = opt[String](descr = "input path", required = true)
   val date = opt[String](descr = "date", required = true)
@@ -20,7 +20,7 @@ object Q2 {
   val log = Logger.getLogger(getClass().getName())
 
   def main(argv: Array[String]) {
-    val args = new Conf(argv)
+    val args = new Conf2(argv)
 
     log.info("Input: " + args.input())
     log.info("Date: " + args.date())
@@ -31,7 +31,7 @@ object Q2 {
     val date = args.date()
 
     val lineitems = sc.textFile(args.input() + "/lineitem.tbl")
-    lineitems
+    val l = lineitems
       .filter(line => {
         line.split("\\|")(10) contains date
       })
@@ -39,14 +39,21 @@ object Q2 {
         (line.split("\\|")(0), 0)
       })
 
-    val orders = sc.textFile(args.intpu() + "/orders.tbl")
+    val orders = sc.textFile(args.input() + "/orders.tbl")
     orders
       .map(line => {
         val a = line.split("\\|")
         (a(0), a(6))
       })
-      .cogroup(lineitems)
-      .foreach(x => println(x))
+      .cogroup(l)
+      .filter(p => {
+        !p._2._2.isEmpty
+      })
+      .sortByKey()
+      .take(20)
+      .foreach(p => {
+        println((p._2._1.iterator.next(),p._1))
+      })
   }
 }
 
