@@ -10,17 +10,17 @@ import org.apache.spark.SparkConf
 import org.rogach.scallop._
 import org.apache.spark.util.{CollectionsUtils, Utils}
 
-class Conf3(args: Seq[String]) extends ScallopConf(args) {
+class Conf4(args: Seq[String]) extends ScallopConf(args) {
   mainOptions = Seq(input, date)
   val input = opt[String](descr = "input path", required = true)
   val date = opt[String](descr = "date", required = true)
 }
 
-object Q3 {
+object Q4 {
   val log = Logger.getLogger(getClass().getName())
 
   def main(argv: Array[String]) {
-    val args = new Conf3(argv)
+    val args = new Conf4(argv)
 
     log.info("Input: " + args.input())
     log.info("Date: " + args.date())
