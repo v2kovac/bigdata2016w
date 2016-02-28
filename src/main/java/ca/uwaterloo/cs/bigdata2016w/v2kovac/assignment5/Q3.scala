@@ -29,21 +29,38 @@ object Q3 {
     val sc = new SparkContext(conf)
 
     val date = args.date()
-    val partMap:Map[Int,String] = Map()
-    val suppMap:Map[Int,String] = Map()
+    val partMap:HashMap[Int,String] = HashMap()
+    val suppMap:HashMap[Int,String] = HashMap()
 
     val part = sc.textFile(args.input() + "/part.tbl")
     part
+      .collect()
       .foreach(line => {
         val a = line.split("\\|")
-        partMap + (a(0) -> a(1))
+        partMap += (a(0).toInt -> a(1))
       })
 
     val supplier = sc.textFile(args.input() + "/supplier.tbl")
     supplier
+      .collect()
       .foreach(line => {
         val a = line.split("\\|")
-        suppMap + (a(0) -> a(1))
+        suppMap += (a(0).toInt -> a(1))
+      })
+
+    val lineitems = sc.textFile(args.input() + "/lineitem.tbl")
+    lineitems
+      .filter(line => {
+        line.split("\\|")(10) contains date
+      })
+      .map(line => {
+        val a = line.split("\\|")
+        (a(0), (partMap(a(1).toInt), suppMap(a(2).toInt)))
+      })
+      .sortByKey()
+      .take(20)
+      .foreach(p => {
+        println((p._1,p._2._1,p._2._2))
       })
   }
 }
