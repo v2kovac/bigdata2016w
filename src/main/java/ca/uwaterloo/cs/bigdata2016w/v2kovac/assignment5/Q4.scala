@@ -40,7 +40,7 @@ object Q4 {
       })
       .collect()
       .foreach(p => {
-        partMap += (p._1.toInt -> p._2.toInt)
+        cusMap += (p._1.toInt -> p._2.toInt)
       })
 
     val nation = sc.textFile(args.input() + "/nation.tbl")
@@ -51,7 +51,7 @@ object Q4 {
       })
       .collect()
       .foreach(p => {
-        suppMap += (p._1.toInt -> p._2)
+        natMap += (p._1.toInt -> p._2)
       })
 
     val bCusMap = sc.broadcast(cusMap)
@@ -81,8 +81,10 @@ object Q4 {
         (nkey, 1) 
       })
       .reduceByKey(_ + _)
+      .sortByKey()
+      .collect()
       .foreach(p => {
-        println((p._1, bNatMap(p._1), p._2))
+        println((p._1, bNatMap.value(p._1), p._2))
       })
 
   }
