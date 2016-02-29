@@ -42,7 +42,7 @@ object Q7 {
       })
       .collect()
       .foreach(p => {
-        partMap += (p._1.toInt -> p._2)
+        cusMap += (p._1.toInt -> p._2)
       })
 
     val bCusMap = sc.broadcast(cusMap)
@@ -80,8 +80,21 @@ object Q7 {
       .filter(p => {
         !p._2._2.isEmpty && !p._2._1.isEmpty
       })
-      .collect()
-      .foreach(p => println(p))
+      .map(p => {
+        val items = p._2._1.iterator.next()
+        val c_name = items._1
+        val l_orderkey = p._1
+        val o_orderdate = items._2
+        val o_shippriority = items._3
+        val sum = p._2._2.foldLeft(0.0)((b,a) => b+a)
+        (sum, (c_name, l_orderkey, o_orderdate, o_shippriority))
+      })
+      .sortByKey(false)
+      .take(10)
+      .foreach(p => {
+        val rev = BigDecimal(p._1).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
+        println((p._2._1, p._2._2, rev, p._2._3, p._2._4))
+      })
   }
 }
 
