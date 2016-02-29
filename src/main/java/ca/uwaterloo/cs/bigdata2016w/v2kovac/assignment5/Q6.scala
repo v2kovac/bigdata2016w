@@ -47,6 +47,7 @@ object Q6 {
       .reduceByKey((v1, v2) => {
         (v1._1+v2._1, v1._2+v2._2, v1._3+v2._3, v1._4+v2._4, v1._5+v2._5, v1._6+v2._6)
       })
+      .collect()
       .foreach(p => {
         val count = p._2._5
         val l_1 = BigDecimal(p._2._1).setScale(2, BigDecimal.RoundingMode.HALF_UP).toDouble
