@@ -64,7 +64,7 @@ object Q3 {
       })
       .map(line => {
         val a = line.split("\\|")
-        (a(0), (bPartMap.value(a(1).toInt), bSuppMap.value(a(2).toInt)))
+        (a(0).toInt, (bPartMap.value(a(1).toInt), bSuppMap.value(a(2).toInt)))
       })
       .sortByKey()
       .take(20)
