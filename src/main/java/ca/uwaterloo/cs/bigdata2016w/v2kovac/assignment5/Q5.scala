@@ -46,14 +46,14 @@ object Q5 {
       .map(line => {
         val a = line.split("\\|")
         //just output date up to month
-        (a(0), a(10).substring(0,7))
+        (a(0).toInt, a(10).substring(0,7))
       })
 
     val orders = sc.textFile(args.input() + "/orders.tbl")
     orders
       .map(line => {
         val a = line.split("\\|")
-        (a(0), a(1).toInt)
+        (a(0).toInt, a(1).toInt)
       })
       .filter(p => {
         val nkey = bCusMap.value(p._2)

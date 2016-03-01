@@ -25,7 +25,7 @@ object Q2 {
     log.info("Input: " + args.input())
     log.info("Date: " + args.date())
 
-    val conf = new SparkConf().setAppName("Q1")
+    val conf = new SparkConf().setAppName("Q2")
     val sc = new SparkContext(conf)
 
     val date = args.date()
@@ -36,14 +36,14 @@ object Q2 {
         line.split("\\|")(10) contains date
       })
       .map(line => {
-        (line.split("\\|")(0), 0)
+        (line.split("\\|")(0).toInt, 0)
       })
 
     val orders = sc.textFile(args.input() + "/orders.tbl")
     orders
       .map(line => {
         val a = line.split("\\|")
-        (a(0), a(6))
+        (a(0).toInt, a(6))
       })
       .cogroup(l)
       .filter(p => {

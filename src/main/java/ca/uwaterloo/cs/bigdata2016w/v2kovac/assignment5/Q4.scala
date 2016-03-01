@@ -63,14 +63,14 @@ object Q4 {
         line.split("\\|")(10) contains date
       })
       .map(line => {
-        (line.split("\\|")(0), 0)
+        (line.split("\\|")(0).toInt, 0)
       })
 
     val orders = sc.textFile(args.input() + "/orders.tbl")
     orders
       .map(line => {
         val a = line.split("\\|")
-        (a(0), a(1).toInt)
+        (a(0).toInt, a(1).toInt)
       })
       .cogroup(l)
       .filter(p => {

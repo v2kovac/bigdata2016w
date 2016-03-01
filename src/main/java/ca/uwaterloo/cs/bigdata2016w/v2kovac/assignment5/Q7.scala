@@ -60,7 +60,7 @@ object Q7 {
         val a = line.split("\\|")
         val l_ep = a(5).toDouble
         val l_d = a(6).toDouble
-        (a(0), l_ep*(1-l_d))
+        (a(0).toInt, l_ep*(1-l_d))
       })
 
     val orders = sc.textFile(args.input() + "/orders.tbl")
@@ -74,7 +74,7 @@ object Q7 {
       })
       .map(line => {
         val a = line.split("\\|")
-        (a(0), (bCusMap.value(a(1).toInt), a(4), a(7)))
+        (a(0).toInt, (bCusMap.value(a(1).toInt), a(4), a(7)))
       })
       .cogroup(l)
       .filter(p => {
