@@ -52,7 +52,7 @@ object ApplySpamClassifier {
         w1(p._1.toInt) = p._2.toDouble
       })
 
-    val bW1 = sc.broadcast(w)
+    val bW1 = sc.broadcast(w1)
 
     //classify text data
     val textFile = sc.textFile(args.input())

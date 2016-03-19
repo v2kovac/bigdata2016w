@@ -14,7 +14,7 @@ class Conf(args: Seq[String]) extends ScallopConf(args) {
   mainOptions = Seq(input, model, shuffle)
   val input = opt[String](descr = "input path", required = true)
   val model = opt[String](descr = "model path", required = true)
-  val shuffle = opt[String](descr = "shuffle", required = false, default = Some("None"))
+  val shuffle = opt[Boolean](descr = "shuffle", required = false)
 }
 
 object TrainSpamClassifier {
@@ -43,18 +43,19 @@ object TrainSpamClassifier {
 
     val delta = 0.002
 
-    val textFile = sc.textFile(args.input())
+    var textFile = sc.textFile(args.input())
 
     //Shuffle
-    if (args.shuffle() == "") {
-      val size = textFile.length
-      val r = scala.util.Random
-      println("********************************************************************************************************")
-      textFile
+    if (args.shuffle() == true) {
+      textFile = textFile
         .map(line => {
-          (r.nextInt(size), line)
+          val r = scala.util.Random
+          (r.nextInt, line)
         })
         .sortByKey()
+        .map(p => {
+          p._2
+        })
     }
 
     textFile
