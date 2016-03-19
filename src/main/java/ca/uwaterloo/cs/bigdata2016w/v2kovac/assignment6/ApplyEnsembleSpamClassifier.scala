@@ -11,7 +11,7 @@ import org.rogach.scallop._
 import scala.math.exp
 
 class Conf3(args: Seq[String]) extends ScallopConf(args) {
-  mainOptions = Seq(input, model, output)
+  mainOptions = Seq(input, model, output, method)
   val input = opt[String](descr = "input path", required = true)
   val model = opt[String](descr = "model path", required = true)
   val output = opt[String](descr = "output path", required = true)
@@ -20,6 +20,9 @@ class Conf3(args: Seq[String]) extends ScallopConf(args) {
 
 object ApplyEnsembleSpamClassifier {
   val log = Logger.getLogger(getClass().getName())
+  val w1 = HashMap[Int, Double]()
+  val w2 = HashMap[Int, Double]()
+  val w3 = HashMap[Int, Double]()
 
   // Scores a document based on its list of features.
   def spamminess(features: Array[Int], w: HashMap[Int, Double]) : Double = {
@@ -41,10 +44,6 @@ object ApplyEnsembleSpamClassifier {
 
     val outputDir = new Path(args.output())
     FileSystem.get(sc.hadoopConfiguration).delete(outputDir, true)
-
-    val w1 = HashMap[Int, Double]()
-    val w2 = HashMap[Int, Double]()
-    val w3 = HashMap[Int, Double]()
 
     //load model 1
     sc.textFile(args.model() + "/part-00000")
@@ -82,6 +81,7 @@ object ApplyEnsembleSpamClassifier {
     val bW1 = sc.broadcast(w1)
     val bW2 = sc.broadcast(w2)
     val bW3 = sc.broadcast(w3)
+    val method = args.method()
 
     //classify text data
     val textFile = sc.textFile(args.input())
@@ -92,7 +92,7 @@ object ApplyEnsembleSpamClassifier {
         val score1 = spamminess(features, bW1.value)
         val score2 = spamminess(features, bW2.value)
         val score3 = spamminess(features, bW3.value)
-        val score = if (args.method() == "average") {
+        val score = if (method == "average") {
           (score1 + score2 + score3) / 3
         } else {
           var vote = 0
@@ -101,6 +101,7 @@ object ApplyEnsembleSpamClassifier {
           if (score3 > 0) vote += 1 else vote -= 1
           vote
         }
+        val isSpam = if (score > 0) "spam" else "ham"
         (tokens(0), tokens(1), score, isSpam)
       })
       .saveAsTextFile(args.output())
