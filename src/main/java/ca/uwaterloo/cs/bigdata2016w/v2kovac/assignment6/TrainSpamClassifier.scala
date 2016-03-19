@@ -11,9 +11,10 @@ import org.rogach.scallop._
 import scala.math.exp
 
 class Conf(args: Seq[String]) extends ScallopConf(args) {
-  mainOptions = Seq(input, model)
+  mainOptions = Seq(input, model, shuffle)
   val input = opt[String](descr = "input path", required = true)
   val model = opt[String](descr = "model path", required = true)
+  val shuffle = opt[String](descr = "shuffle", required = false, default = Some("None"))
 }
 
 object TrainSpamClassifier {
@@ -32,6 +33,7 @@ object TrainSpamClassifier {
 
     log.info("Input: " + args.input())
     log.info("Model: " + args.model())
+    log.info("Shuffle: " + args.shuffle())
 
     val conf = new SparkConf().setAppName("Train Spam Classifier")
     val sc = new SparkContext(conf)
@@ -42,6 +44,19 @@ object TrainSpamClassifier {
     val delta = 0.002
 
     val textFile = sc.textFile(args.input())
+
+    //Shuffle
+    if (args.shuffle() == "") {
+      val size = textFile.length
+      val r = scala.util.Random
+      println("********************************************************************************************************")
+      textFile
+        .map(line => {
+          (r.nextInt(size), line)
+        })
+        .sortByKey()
+    }
+
     textFile
       .map(line => {
         val tokens = line.split(" ")

@@ -19,10 +19,10 @@ class Conf2(args: Seq[String]) extends ScallopConf(args) {
 
 object ApplySpamClassifier {
   val log = Logger.getLogger(getClass().getName())
-  val w = HashMap[Int, Double]()
+  val w1 = HashMap[Int, Double]()
 
   // Scores a document based on its list of features.
-  def spamminess(features: Array[Int]) : Double = {
+  def spamminess(features: Array[Int], w: HashMap[Int, Double]) : Double = {
     var score = 0d
     features.foreach(f => if (w.contains(f)) score += w(f))
     score
@@ -49,8 +49,10 @@ object ApplySpamClassifier {
       })
       .collect()
       .foreach(p => {
-        w(p._1.toInt) = p._2.toDouble
+        w1(p._1.toInt) = p._2.toDouble
       })
+
+    val bW1 = sc.broadcast(w)
 
     //classify text data
     val textFile = sc.textFile(args.input())
@@ -58,7 +60,7 @@ object ApplySpamClassifier {
       .map(line => {
         val tokens = line.split(" ")
         val features = tokens.slice(2,tokens.length).map(_.toInt)
-        val score = spamminess(features)
+        val score = spamminess(features, bW1.value)
         val isSpam = if (score > 0) "spam" else "ham"
         (tokens(0), tokens(1), score, isSpam)
       })
