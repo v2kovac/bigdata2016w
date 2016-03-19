@@ -10,14 +10,14 @@ import org.apache.spark.SparkConf
 import org.rogach.scallop._
 import scala.math.exp
 
-class Conf(args: Seq[String]) extends ScallopConf(args) {
+class Conf2(args: Seq[String]) extends ScallopConf(args) {
   mainOptions = Seq(input, model, output)
   val input = opt[String](descr = "input path", required = true)
   val model = opt[String](descr = "model path", required = true)
   val output = opt[String](descr = "output path", required = true)
 }
 
-object TrainSpamClassifier {
+object ApplySpamClassifier {
   val log = Logger.getLogger(getClass().getName())
   val w = HashMap[Int, Double]()
 
@@ -29,7 +29,7 @@ object TrainSpamClassifier {
   }
 
   def main(argv: Array[String]) {
-    val args = new Conf(argv)
+    val args = new Conf2(argv)
 
     log.info("Input: " + args.input())
     log.info("Model: " + args.model())
@@ -43,9 +43,13 @@ object TrainSpamClassifier {
 
     //load model
     sc.textFile(args.model())
+      .map(line => {
+        val a = line.split(",")
+        (a(0).substring(1), a(1).substring(0, a(1).length-1))
+      })
       .collect()
       .foreach(p => {
-        w(p._1.toInt) = p._2.toInt
+        w(p._1.toInt) = p._2.toDouble
       })
 
     //classify text data
