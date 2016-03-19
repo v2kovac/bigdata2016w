@@ -1,4 +1,4 @@
-package ca.uwaterloo.cs.bigdata2016w.v2kovac.assignment2;
+package ca.uwaterloo.cs.bigdata2016w.v2kovac.assignment6;
 
 import collection.mutable.HashMap
 import scala.collection.JavaConverters._
@@ -8,16 +8,17 @@ import org.apache.hadoop.fs._
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.rogach.scallop._
+import scala.math.exp
 
 class Conf(args: Seq[String]) extends ScallopConf(args) {
-  mainOptions = Seq(input, output, reducers)
+  mainOptions = Seq(input, model)
   val input = opt[String](descr = "input path", required = true)
   val model = opt[String](descr = "model path", required = true)
 }
 
 object TrainSpamClassifier {
   val log = Logger.getLogger(getClass().getName())
-  val w = Map[Int, Double]()
+  val w = HashMap[Int, Double]()
 
   // Scores a document based on its list of features.
   def spamminess(features: Array[Int]) : Double = {
@@ -38,6 +39,8 @@ object TrainSpamClassifier {
     val modelDir = new Path(args.model())
     FileSystem.get(sc.hadoopConfiguration).delete(modelDir, true)
 
+    val delta = 0.002
+
     val textFile = sc.textFile(args.input())
     textFile
       .map(line => {
@@ -46,6 +49,23 @@ object TrainSpamClassifier {
         (0, (tokens(0), isSpam, tokens.slice(2,tokens.length).map(_.toInt)))
       })
       .groupByKey(1)
+      .flatMap(p => {
+        p._2.toList
+      })
+      .foreach(p => {
+        val score = spamminess(p._3)
+        val prob = 1.0 / (1 + exp(-score))
+        p._3.map(f => {
+          if (w.contains(f)) {
+            w(f) += (p._2 - prob) * delta
+          } else {
+            w(f) = (p._2 - prob) * delta
+          }
+        })
+      })
+
+    sc.parallelize(w.toSeq, 1)
+      .map(p => (p._1, p._2))
       .saveAsTextFile(args.model())
   }
 }
