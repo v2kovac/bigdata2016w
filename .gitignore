@@ -4,3 +4,5 @@ wc/
 *.py
 *.swp
 spam.*
+*.sh
+compute_*
