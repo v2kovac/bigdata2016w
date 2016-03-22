@@ -40,6 +40,7 @@ object TrainSpamClassifier {
 
     val modelDir = new Path(args.model())
     FileSystem.get(sc.hadoopConfiguration).delete(modelDir, true)
+    val modelOutput = args.model()
 
     val delta = 0.002
 
@@ -66,22 +67,20 @@ object TrainSpamClassifier {
       })
       .groupByKey(1)
       .flatMap(p => {
-        p._2.toList
-      })
-      .foreach(p => {
-        val score = spamminess(p._3)
-        val prob = 1.0 / (1 + exp(-score))
-        p._3.map(f => {
-          if (w.contains(f)) {
-            w(f) += (p._2 - prob) * delta
-          } else {
-            w(f) = (p._2 - prob) * delta
-          }
+        p._2.foreach(p2 => {
+          val score = spamminess(p2._3)
+          val prob = 1.0 / (1 + exp(-score))
+          p2._3.foreach(f => {
+            if (w.contains(f)) {
+              w(f) += (p2._2 - prob) * delta
+            } else {
+              w(f) = (p2._2 - prob) * delta
+            }
+          })
         })
+        w
       })
+      .saveAsTextFile(modelOutput)
 
-    sc.parallelize(w.toSeq, 1)
-      .map(p => (p._1, p._2))
-      .saveAsTextFile(args.model())
   }
 }
