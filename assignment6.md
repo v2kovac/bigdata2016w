@@ -1,8 +1,8 @@
 Question 1
 ----------
-X: 17.25 
-Y: 12.82 
-Britney: 14.61
+X: 17.25  
+Y: 12.82  
+Britney: 14.61  
 
 Question 2
 ----------
