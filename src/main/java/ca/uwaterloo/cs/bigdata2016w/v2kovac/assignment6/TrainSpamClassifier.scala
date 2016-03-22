@@ -65,6 +65,7 @@ object TrainSpamClassifier {
         val isSpam = if (tokens(1) == "spam") 1 else 0
         (0, (tokens(0), isSpam, tokens.slice(2,tokens.length).map(_.toInt)))
       })
+      .coalesce(1)
       .groupByKey(1)
       .flatMap(p => {
         p._2.foreach(p2 => {
