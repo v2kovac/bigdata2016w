@@ -147,6 +147,17 @@
       <artifactId>spark-core_2.10</artifactId>
       <version>${spark.version}</version>
     </dependency>
+
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-client</artifactId>
+      <version>0.98.16-hadoop2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-server</artifactId>
+      <version>0.98.16-hadoop2</version>
+    </dependency>
   </dependencies>
 
 </project>
