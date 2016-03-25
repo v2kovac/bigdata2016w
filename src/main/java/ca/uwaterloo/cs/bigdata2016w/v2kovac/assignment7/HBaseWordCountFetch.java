@@ -1,4 +1,4 @@
-package io.bespin.java.mapreduce.wordcount;
+package ca.uwaterloo.cs.bigdata2016w.v2kovac.assignment7;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
