@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 import java.util.Set;
 import java.util.Stack;
 import java.util.TreeSet;
+import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -21,20 +22,27 @@ import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.kohsuke.args4j.ParserProperties;
+import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.client.Get;
+import org.apache.hadoop.hbase.client.HConnection;
+import org.apache.hadoop.hbase.client.HConnectionManager;
+import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import tl.lin.data.array.ArrayListWritable;
 import tl.lin.data.pair.PairOfInts;
 import tl.lin.data.pair.PairOfWritables;
 
-public class BooleanRetrieval extends Configured implements Tool {
-  private MapFile.Reader index;
+public class BooleanRetrievalHBase extends Configured implements Tool {
   private FSDataInputStream collection;
   private Stack<Set<Integer>> stack;
+  HTableInterface table;
 
-  private BooleanRetrieval() {}
+  private BooleanRetrievalHBase() {}
 
-  private void initialize(String indexPath, String collectionPath, FileSystem fs) throws IOException {
-    index = new MapFile.Reader(new Path(indexPath + "/part-r-00000"), fs.getConf());
+  private void initialize(String collectionPath, FileSystem fs) throws IOException {
     collection = fs.open(new Path(collectionPath));
     stack = new Stack<Set<Integer>>();
   }
@@ -99,22 +107,19 @@ public class BooleanRetrieval extends Configured implements Tool {
   private Set<Integer> fetchDocumentSet(String term) throws IOException {
     Set<Integer> set = new TreeSet<Integer>();
 
-    for (PairOfInts pair : fetchPostings(term)) {
-      set.add(pair.getLeftElement());
+    for (KeyValue kv : fetchPostings(term)) {
+      int docid = Bytes.toInt(kv.getQualifier());
+      set.add(docid);
     }
 
     return set;
   }
 
-  private ArrayListWritable<PairOfInts> fetchPostings(String term) throws IOException {
-    Text key = new Text();
-    PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>> value =
-        new PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>();
+  private List<KeyValue> fetchPostings(String term) throws IOException {
+    Get get = new Get(Bytes.toBytes(term));
+    Result result = table.get(get);
 
-    key.set(term);
-    index.get(key, value);
-
-    return value.getRightElement();
+    return result.list();
   }
 
   public String fetchLine(long offset) throws IOException {
@@ -126,8 +131,11 @@ public class BooleanRetrieval extends Configured implements Tool {
   }
 
   public static class Args {
-    @Option(name = "-index", metaVar = "[path]", required = true, usage = "index path")
-    public String index;
+    @Option(name = "-table", metaVar = "[name]", required = true, usage = "HBase table")
+    public String table;
+
+    @Option(name = "-config", metaVar = "[path]", required = true, usage = "HBase config")
+    public String config;
 
     @Option(name = "-collection", metaVar = "[path]", required = true, usage = "collection path")
     public String collection;
@@ -157,8 +165,14 @@ public class BooleanRetrieval extends Configured implements Tool {
     }
 
     FileSystem fs = FileSystem.get(new Configuration());
+    Configuration conf = fs.getConf();
+    conf.addResource(new Path(args.config));
 
-    initialize(args.index, args.collection, fs);
+    Configuration hbaseConfig = HBaseConfiguration.create(conf);
+    HConnection hbaseConnection = HConnectionManager.createConnection(hbaseConfig);
+    table = hbaseConnection.getTable(args.table);
+
+    initialize(args.collection, fs);
 
     System.out.println("Query: " + args.query);
     long startTime = System.currentTimeMillis();
@@ -172,6 +186,6 @@ public class BooleanRetrieval extends Configured implements Tool {
    * Dispatches command-line arguments to the tool via the {@code ToolRunner}.
    */
   public static void main(String[] args) throws Exception {
-    ToolRunner.run(new BooleanRetrieval(), args);
+    ToolRunner.run(new BooleanRetrievalHBase(), args);
   }
 }

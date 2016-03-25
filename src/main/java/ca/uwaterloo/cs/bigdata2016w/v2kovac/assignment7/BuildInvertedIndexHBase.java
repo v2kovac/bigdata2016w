@@ -1,10 +1,16 @@
 package ca.uwaterloo.cs.bigdata2016w.v2kovac.assignment7;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.StringTokenizer;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HTableDescriptor;
@@ -16,9 +22,16 @@ import org.apache.hadoop.hbase.mapreduce.TableMapReduceUtil;
 import org.apache.hadoop.hbase.mapreduce.TableReducer;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
@@ -27,34 +40,76 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.kohsuke.args4j.ParserProperties;
 
-/**
- * Simple word count demo using HBase for storage.
- */
-public class HBaseWordCount extends Configured implements Tool {
-  private static final Logger LOG = Logger.getLogger(HBaseWordCount.class);
+import tl.lin.data.array.ArrayListWritable;
+import tl.lin.data.fd.Object2IntFrequencyDistribution;
+import tl.lin.data.fd.Object2IntFrequencyDistributionEntry;
+import tl.lin.data.pair.PairOfInts;
+import tl.lin.data.pair.PairOfObjectInt;
+import tl.lin.data.pair.PairOfWritables;
+import tl.lin.data.pair.PairOfStringInt;
 
-  public static final String[] FAMILIES = { "c" };
+public class BuildInvertedIndexHBase extends Configured implements Tool {
+  public static final String[] FAMILIES = { "p" };
   public static final byte[] CF = FAMILIES[0].getBytes();
-  public static final byte[] COUNT = "count".getBytes();
+  private static final Logger LOG = Logger.getLogger(BuildInvertedIndexHBase.class);
 
-  public static class MyTableReducer extends TableReducer<Text, IntWritable, ImmutableBytesWritable>  {
-    public void reduce(Text key, Iterable<IntWritable> values, Context context)
+  private static class MyMapper extends Mapper<LongWritable, Text, PairOfStringInt, IntWritable> {
+    private static final Object2IntFrequencyDistribution<String> COUNTS =
+        new Object2IntFrequencyDistributionEntry<String>();
+    private static final IntWritable TF = new IntWritable();
+
+    @Override
+    public void map(LongWritable docno, Text doc, Context context)
         throws IOException, InterruptedException {
-      int sum = 0;
-      for (IntWritable val : values) {
-        sum += val.get();
+      String text = doc.toString();
+
+      // Tokenize line.
+      List<String> tokens = new ArrayList<String>();
+      StringTokenizer itr = new StringTokenizer(text);
+      while (itr.hasMoreTokens()) {
+        String w = itr.nextToken().toLowerCase().replaceAll("(^[^a-z]+|[^a-z]+$)", "");
+        if (w.length() == 0) continue;
+        tokens.add(w);
       }
-      Put put = new Put(Bytes.toBytes(key.toString()));
-      put.add(CF, COUNT, Bytes.toBytes(sum));
+
+      // Build a histogram of the terms.
+      COUNTS.clear();
+      for (String token : tokens) {
+        COUNTS.increment(token);
+      }
+
+      // Emit postings.
+      for (PairOfObjectInt<String> e : COUNTS) {
+        TF.set(e.getRightElement());
+        context.write(new PairOfStringInt(e.getLeftElement(), (int) docno.get()), TF);
+      }
+    }
+  }
+
+  protected static class MyPartitioner extends Partitioner<PairOfStringInt, IntWritable> {
+    @Override
+    public int getPartition(PairOfStringInt key, IntWritable value, int numReduceTasks) {
+      return (key.getLeftElement().hashCode() & Integer.MAX_VALUE) % numReduceTasks;
+    }
+  }
+
+  public static class MyTableReducer extends TableReducer<PairOfStringInt, IntWritable, ImmutableBytesWritable>  {
+
+    public void reduce(PairOfStringInt key, Iterable<IntWritable> values, Context context)
+        throws IOException, InterruptedException {
+      int tf = 0;
+      //only loops once
+      for (IntWritable val : values) {
+        tf += val.get();
+      }
+      Put put = new Put(Bytes.toBytes(key.getLeftElement()));
+      put.add(CF, Bytes.toBytes(key.getRightElement()), Bytes.toBytes(tf));
 
       context.write(null, put);
     }
   }
 
-  /**
-   * Creates an instance of this tool.
-   */
-  public HBaseWordCount() {}
+  private BuildInvertedIndexHBase() {}
 
   public static class Args {
     @Option(name = "-input", metaVar = "[path]", required = true, usage = "input path")
@@ -69,6 +124,7 @@ public class HBaseWordCount extends Configured implements Tool {
     @Option(name = "-reducers", metaVar = "[num]", required = false, usage = "number of reducers")
     public int numReducers = 1;
   }
+
 
   /**
    * Runs this tool.
@@ -85,7 +141,7 @@ public class HBaseWordCount extends Configured implements Tool {
       return -1;
     }
 
-    LOG.info("Tool: " + HBaseWordCount.class.getSimpleName());
+    LOG.info("Tool: " + BuildInvertedIndexHBase.class.getSimpleName());
     LOG.info(" - input path: " + args.input);
     LOG.info(" - output table: " + args.table);
     LOG.info(" - config: " + args.config);
@@ -116,16 +172,16 @@ public class HBaseWordCount extends Configured implements Tool {
 
     admin.close();
 
-    // Now we're ready to start running MapReduce.
-    Job job = Job.getInstance(conf);
-    job.setJobName(HBaseWordCount.class.getSimpleName());
-    job.setJarByClass(HBaseWordCount.class);
+    //Now start MapReduce
+    Job job = Job.getInstance(getConf());
+    job.setJobName(BuildInvertedIndexHBase.class.getSimpleName());
+    job.setJarByClass(BuildInvertedIndexHBase.class);
 
-    job.setMapOutputKeyClass(Text.class);
+    job.setMapOutputKeyClass(PairOfStringInt.class);
     job.setMapOutputValueClass(IntWritable.class);
 
-    job.setMapperClass(WordCount.MyMapper.class);
-    job.setCombinerClass(WordCount.MyReducer.class);
+    job.setMapperClass(MyMapper.class);
+    job.setPartitionerClass(MyPartitioner.class);
     job.setNumReduceTasks(args.numReducers);
 
     FileInputFormat.setInputPaths(job, new Path(args.input));
@@ -133,7 +189,7 @@ public class HBaseWordCount extends Configured implements Tool {
 
     long startTime = System.currentTimeMillis();
     job.waitForCompletion(true);
-    LOG.info("Job Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
+    System.out.println("Job Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
 
     return 0;
   }
@@ -142,6 +198,6 @@ public class HBaseWordCount extends Configured implements Tool {
    * Dispatches command-line arguments to the tool via the {@code ToolRunner}.
    */
   public static void main(String[] args) throws Exception {
-    ToolRunner.run(new HBaseWordCount(), args);
+    ToolRunner.run(new BuildInvertedIndexHBase(), args);
   }
 }
