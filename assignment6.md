@@ -30,3 +30,15 @@ Avg. 1-ROCA%: 17.80
 8. 19.16 
 9. 18.24 
 10. 15.66
+
+Marks:
+Compilation: 4/4
+TrainSpamClassifier: 15/15
+ApplySpamClassifier: 5/5
+ApplyEnsembleClassifier: 6/6
+Shuffle implementation: 5/5
+Question Answers: 12/15
+Runs on Altiscale: 10/10
+Total: 57/60
+
+- Batch result (Q4) much higher than expected (~14% +- 3%)
